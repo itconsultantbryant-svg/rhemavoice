@@ -1,0 +1,29 @@
+@import "@rhemavoice/ui/tokens.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap");
+
+body {
+  font-family: var(--rv-font-body);
+  background: radial-gradient(900px 400px at 0% 0%, rgba(223, 166, 34, 0.12), transparent),
+    radial-gradient(700px 360px at 100% 0%, rgba(155, 35, 194, 0.12), transparent), var(--rv-surface);
+  color: var(--rv-ink);
+}
+
+.font-display {
+  font-family: var(--rv-font-display);
+}
+
+.rv-card {
+  @apply rounded-[14px] border border-[var(--rv-border)] bg-[var(--rv-surface-elevated)] p-5 shadow-[var(--rv-shadow)];
+}
+
+.rv-btn-primary {
+  @apply inline-flex items-center justify-center rounded-[12px] bg-[var(--rv-purple-900)] px-5 py-2.5 text-sm font-semibold text-[var(--rv-gold-200)];
+}
+
+.rv-input {
+  @apply w-full rounded-[12px] border border-[var(--rv-border)] bg-[var(--rv-surface-elevated)] px-4 py-3 outline-none focus:border-[var(--rv-gold-500)];
+}

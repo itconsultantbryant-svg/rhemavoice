@@ -1,0 +1,20 @@
+{
+  "name": "rhemavoice",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "web": "npm run dev --workspace=@rhemavoice/web",
+    "admin": "npm run dev --workspace=@rhemavoice/admin",
+    "mobile": "npm run start --workspace=@rhemavoice/mobile",
+    "build:web": "npm run build --workspace=@rhemavoice/web",
+    "build:admin": "npm run build --workspace=@rhemavoice/admin",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

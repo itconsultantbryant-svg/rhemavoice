@@ -1,0 +1,31 @@
+{
+  "name": "RhemaVoice",
+  "slug": "rhemavoice",
+  "version": "0.1.0",
+  "orientation": "portrait",
+  "scheme": "rhemavoice",
+  "userInterfaceStyle": "automatic",
+  "newArchEnabled": true,
+  "splash": {
+    "image": "./assets/brand/rhemavoice_logo.jpeg",
+    "resizeMode": "contain",
+    "backgroundColor": "#05001E"
+  },
+  "ios": {
+    "supportsTablet": true,
+    "bundleIdentifier": "app.rhemavoice.mobile"
+  },
+  "android": {
+    "adaptiveIcon": {
+      "backgroundColor": "#05001E"
+    },
+    "package": "app.rhemavoice.mobile"
+  },
+  "plugins": [
+    "expo-router",
+    "expo-secure-store"
+  ],
+  "experiments": {
+    "typedRoutes": true
+  }
+}

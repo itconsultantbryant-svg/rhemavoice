@@ -1,0 +1,31 @@
+from django.urls import include, path
+from rest_framework_simplejwt.views import TokenRefreshView
+
+urlpatterns = [
+    path("auth/", include("apps.users.urls")),
+    path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("modules/", include("apps.modules.urls")),
+    path("dashboard/", include("apps.dashboard.urls")),
+    path("admin/", include("apps.administration.urls")),
+    path("academy/", include("apps.academy.urls")),
+    path("streaming/", include("apps.streaming.urls")),
+    path("rooms/", include("apps.rooms.urls")),
+    path("radio/", include("apps.radio.urls")),
+    path("music/", include("apps.music.urls")),
+    path("business/", include("apps.business.urls")),
+    path("jobs/", include("apps.jobs.urls")),
+    path("marketplace/", include("apps.marketplace.urls")),
+    path("store/", include("apps.store.urls")),
+    path("chat/", include("apps.chat.urls")),
+    path("wallet/", include("apps.wallet.urls")),
+    path("payments/", include("apps.payments.urls")),
+    path("notifications/", include("apps.notifications.urls")),
+    path("analytics/", include("apps.analytics.urls")),
+    path("church/", include("apps.church.urls")),
+    path("settings/", include("apps.settings_app.urls")),
+    path("learn/", include("apps.learn.urls")),
+    path("opportunities/", include("apps.opportunities.urls")),
+    path("transport/", include("apps.transport.urls")),
+    path("ticketing/", include("apps.ticketing.urls")),
+    path("air/", include("apps.air.urls")),
+]

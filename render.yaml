@@ -1,0 +1,62 @@
+# Render Blueprint — RhemaVoice API
+# https://render.com/docs/blueprint-spec
+#
+# After connecting the repo:
+# 1. New → Blueprint → select this file
+# 2. Set SECRET_KEY (generate a long random string)
+# 3. Update CORS_ALLOWED_ORIGINS / CSRF_TRUSTED_ORIGINS with your Vercel URLs
+# 4. Optionally set SEED_DEMO=1 once, then remove it
+
+databases:
+  - name: rhemavoice-db
+    plan: free
+    databaseName: rhemavoice
+    user: rhemavoice
+
+services:
+  - type: web
+    name: rhemavoice-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: bash build.sh
+    startCommand: bash start.sh
+    healthCheckPath: /health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: DEBUG
+        value: "0"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rhemavoice-db
+          property: connectionString
+      - key: DATABASE_SSL_REQUIRE
+        value: "1"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost"
+      - key: CSRF_TRUSTED_ORIGINS
+        # Replace with your Vercel + Render URLs after first deploy
+        value: "https://rhemavoice-api.onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        # Replace with your Vercel web + admin URLs
+        value: "http://localhost:3000,http://localhost:3001"
+      - key: OTP_DEBUG
+        value: "0"
+      - key: PAYMENTS_MODE
+        value: "sandbox"
+      - key: USE_REDIS_CHANNELS
+        value: "0"
+      - key: SEED_DEMO
+        # Set to "1" for first deploy only, then change to "0" and redeploy
+        value: "0"
+      - key: SECURE_SSL_REDIRECT
+        value: "1"
+
+  # Optional Redis for live chat / Celery (upgrade plan as needed)
+  # - type: redis
+  #   name: rhemavoice-redis
+  #   plan: free
+  #   ipAllowList: []

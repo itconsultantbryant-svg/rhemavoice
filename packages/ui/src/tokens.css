@@ -1,0 +1,48 @@
+:root {
+  --rv-purple-950: #05001e;
+  --rv-purple-900: #100030;
+  --rv-purple-800: #1a0a3c;
+  --rv-purple-700: #2d1258;
+  --rv-purple-600: #651882;
+  --rv-purple-500: #9b23c2;
+  --rv-purple-300: #c77dff;
+  --rv-purple-100: #f3e8ff;
+  --rv-gold-500: #dfa622;
+  --rv-gold-400: #f5c542;
+  --rv-gold-300: #ffe56b;
+  --rv-gold-200: #fff3b0;
+  --rv-navy-950: var(--rv-purple-950);
+  --rv-navy-900: var(--rv-purple-900);
+  --rv-navy-800: var(--rv-purple-800);
+  --rv-navy-700: var(--rv-purple-700);
+  --rv-surface: #f8f5fc;
+  --rv-surface-elevated: #ffffff;
+  --rv-ink: #100030;
+  --rv-ink-muted: #5c4e78;
+  --rv-border: rgba(16, 0, 48, 0.12);
+  --rv-success: #2f6b4f;
+  --rv-danger: #a33b3b;
+  --rv-radius: 14px;
+  --rv-radius-sm: 10px;
+  --rv-shadow: 0 12px 40px rgba(16, 0, 48, 0.1);
+  --rv-font-display: "Fraunces", "Cormorant Garamond", Georgia, serif;
+  --rv-font-body: "Source Sans 3", "Source Sans Pro", system-ui, sans-serif;
+  --rv-motion: 280ms;
+  --rv-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --rv-gradient-brand: linear-gradient(135deg, #100030 0%, #2d1258 45%, #651882 100%);
+  --rv-gradient-gold: linear-gradient(135deg, #dfa622 0%, #ffe56b 100%);
+  color-scheme: light;
+  background: var(--rv-surface);
+  color: var(--rv-ink);
+}
+
+.dark,
+[data-theme="dark"] {
+  --rv-surface: #05001e;
+  --rv-surface-elevated: #140a2e;
+  --rv-ink: #f8f5fc;
+  --rv-ink-muted: #b8a9d4;
+  --rv-border: rgba(248, 245, 252, 0.12);
+  --rv-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
