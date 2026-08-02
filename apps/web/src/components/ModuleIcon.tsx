@@ -4,6 +4,7 @@ import {
   BookOpen,
   Briefcase,
   Car,
+  Church,
   GraduationCap,
   LayoutGrid,
   Mic,
@@ -11,12 +12,11 @@ import {
   Radio,
   Target,
   Ticket,
-  Video,
   type LucideIcon,
 } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
-  video: Video,
+  church: Church,
   "graduation-cap": GraduationCap,
   "book-open": BookOpen,
   radio: Radio,

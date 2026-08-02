@@ -9,7 +9,7 @@ import { setUser, useAppDispatch, useAppSelector } from "../../store";
 import { colors } from "../../theme";
 
 const MODULE_ICONS: Record<string, string> = {
-  video: "video",
+  church: "church",
   "graduation-cap": "school",
   "book-open": "book-open-page-variant",
   radio: "radio",
@@ -41,28 +41,44 @@ export default function Dashboard() {
   if (!user || !dash) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.purple950 }}>
-        <Image source={require("../../assets/brand/loading_cover.jpeg")} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+        <Image
+          source={require("../../assets/brand/loading_cover.jpeg")}
+          style={{ width: "100%", height: "100%" }}
+          resizeMode="cover"
+        />
       </View>
     );
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.surface }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+    >
       <Animated.View entering={FadeInDown.duration(280)}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <Image source={require("../../assets/brand/rhemavoice_logo.jpeg")} style={{ width: 44, height: 44, borderRadius: 22 }} />
+          <Image
+            source={require("../../assets/brand/rhemavoice_logo.jpeg")}
+            style={{ width: 44, height: 44, borderRadius: 22 }}
+          />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.gold500, letterSpacing: 3, textTransform: "uppercase", fontSize: 11 }}>{BRAND.name}</Text>
+            <Text style={{ color: colors.gold500, letterSpacing: 3, textTransform: "uppercase", fontSize: 11 }}>
+              {BRAND.name}
+            </Text>
             <Text variant="headlineSmall" style={{ color: colors.navy900, fontWeight: "700", marginTop: 2 }}>
               {dash.greeting}
             </Text>
-            <Text style={{ color: colors.inkMuted, fontSize: 12, marginTop: 2 }}>{dash.tagline || BRAND.tagline}</Text>
+            <Text style={{ color: colors.inkMuted, fontSize: 12, marginTop: 2 }}>
+              {dash.tagline || BRAND.tagline}
+            </Text>
           </View>
         </View>
 
         <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
           <Link href="/(app)/settings" asChild>
-            <Button mode="outlined" compact>Settings</Button>
+            <Button mode="outlined" compact>
+              Settings
+            </Button>
           </Link>
           <Button
             mode="text"
@@ -77,59 +93,23 @@ export default function Dashboard() {
           </Button>
         </View>
 
-        <TextInput mode="outlined" placeholder="Search churches, courses, jobs, events…" style={{ marginTop: 16 }} />
+        <TextInput mode="outlined" placeholder="Search RhemaVoice…" style={{ marginTop: 16 }} />
 
-        <Card style={{ marginTop: 16, backgroundColor: colors.elevated }}>
-          <Card.Content>
-            <Text variant="titleMedium">Daily Verse</Text>
-            <Text style={{ marginTop: 8, fontStyle: "italic", color: colors.inkMuted }}>&ldquo;{dash.daily_verse.text}&rdquo;</Text>
-            <Text style={{ marginTop: 8, color: colors.gold500 }}>
-              {dash.daily_verse.reference} · {dash.daily_verse.translation}
-            </Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={{ marginTop: 12 }}>
-          <Card.Content>
-            <Text variant="titleMedium">Live Churches</Text>
-            {dash.live_churches.map((l) => (
-              <Text key={l.id} style={{ marginTop: 8 }}>{l.title} · {l.church_name} · {l.viewers} watching</Text>
-            ))}
-          </Card.Content>
-        </Card>
-
-        <Card style={{ marginTop: 12 }}>
-          <Card.Content>
-            <Text variant="titleMedium">Rhema Academy</Text>
-            {dash.academy_courses.map((c) => (
-              <View key={c.id} style={{ marginTop: 10 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text>{c.title}</Text>
-                  <Text>{c.progress ?? 0}%</Text>
-                </View>
-                <ProgressBar progress={(c.progress ?? 0) / 100} color={colors.gold500} style={{ marginTop: 6 }} />
-              </View>
-            ))}
-          </Card.Content>
-        </Card>
-
-        <Card style={{ marginTop: 12 }}>
-          <Card.Content>
-            <Text variant="titleMedium">Featured Opportunities</Text>
-            {dash.featured_opportunities.map((o) => (
-              <Text key={o.id} style={{ marginTop: 8 }}>{o.title} · {o.organization}</Text>
-            ))}
-          </Card.Content>
-        </Card>
-
+        {/* Modules first */}
         <Text variant="titleLarge" style={{ marginTop: 20, fontWeight: "700" }}>
-          Platform Modules
+          Modules
         </Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
           {modules.map((m, i) => (
-            <Animated.View key={m.id} entering={FadeInDown.delay(i * 30).duration(280)} style={{ width: "30%" }}>
+            <Animated.View
+              key={m.id}
+              entering={FadeInDown.delay(i * 30).duration(280)}
+              style={{ width: "30%" }}
+            >
               <Pressable
-                onPress={() => router.push(`/(app)/module/${m.id}`)}
+                onPress={() =>
+                  router.push(m.id === "academy" ? "/(app)/academy" : `/(app)/module/${m.id}`)
+                }
                 style={({ pressed }) => ({
                   transform: [{ scale: pressed ? 0.95 : 1 }],
                   backgroundColor: colors.elevated,
@@ -148,13 +128,75 @@ export default function Dashboard() {
                   color={colors.gold500}
                   style={{ backgroundColor: "rgba(197,160,72,0.12)" }}
                 />
-                <Text style={{ fontWeight: "700", color: colors.navy900, fontSize: 11, textAlign: "center" }} numberOfLines={2}>
+                <Text
+                  style={{ fontWeight: "700", color: colors.navy900, fontSize: 11, textAlign: "center" }}
+                  numberOfLines={2}
+                >
                   {m.name}
                 </Text>
               </Pressable>
             </Animated.View>
           ))}
         </View>
+
+        {/* Live activities below */}
+        <Text variant="titleLarge" style={{ marginTop: 28, fontWeight: "700" }}>
+          Live & happening now
+        </Text>
+
+        <Card style={{ marginTop: 12, backgroundColor: colors.elevated }}>
+          <Card.Content>
+            <Text variant="titleMedium">Live Now</Text>
+            {dash.live_churches.map((l) => (
+              <Text key={l.id} style={{ marginTop: 8 }}>
+                {l.title} · {l.church_name} · {l.viewers} watching
+              </Text>
+            ))}
+            {dash.live_rooms.slice(0, 2).map((r) => (
+              <Text key={r.id} style={{ marginTop: 8 }}>
+                {r.title} · {r.participants} in room
+              </Text>
+            ))}
+          </Card.Content>
+        </Card>
+
+        <Card style={{ marginTop: 12 }}>
+          <Card.Content>
+            <Text variant="titleMedium">Daily Verse</Text>
+            <Text style={{ marginTop: 8, fontStyle: "italic", color: colors.inkMuted }}>
+              &ldquo;{dash.daily_verse.text}&rdquo;
+            </Text>
+            <Text style={{ marginTop: 8, color: colors.gold500 }}>
+              {dash.daily_verse.reference} · {dash.daily_verse.translation}
+            </Text>
+          </Card.Content>
+        </Card>
+
+        <Card style={{ marginTop: 12 }}>
+          <Card.Content>
+            <Text variant="titleMedium">Academy</Text>
+            {dash.academy_courses.map((c) => (
+              <View key={c.id} style={{ marginTop: 10 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text>{c.title}</Text>
+                  <Text>{c.progress ?? 0}%</Text>
+                </View>
+                <ProgressBar progress={(c.progress ?? 0) / 100} color={colors.gold500} style={{ marginTop: 6 }} />
+              </View>
+            ))}
+          </Card.Content>
+        </Card>
+
+        <Card style={{ marginTop: 12 }}>
+          <Card.Content>
+            <Text variant="titleMedium">Opportunities</Text>
+            {dash.featured_opportunities.map((o) => (
+              <Text key={o.id} style={{ marginTop: 8 }}>
+                {o.title} · {o.organization}
+              </Text>
+            ))}
+          </Card.Content>
+        </Card>
       </Animated.View>
     </ScrollView>
   );

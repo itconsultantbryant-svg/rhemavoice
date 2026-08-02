@@ -117,7 +117,7 @@ export const MODULE_CATALOG: Omit<ModuleMeta, "profile_complete">[] = [
     id: ModuleId.Streaming,
     name: "Church Streaming",
     description: "Watch live services, sermons, and ministry broadcasts",
-    icon: "video",
+    icon: "church",
     requires_profile: false,
     route: "/streaming",
     enabled: true,
