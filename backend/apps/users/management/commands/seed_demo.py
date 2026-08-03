@@ -4,7 +4,19 @@ from apps.administration.models import AuditLog, FeatureToggle, SystemSetting
 from apps.modules.models import ModuleDefinition
 from apps.roles.models import Permission, Role, UserRole
 from apps.users.models import User
-from apps.academy.models import Course, CourseCategory, Institution, Lesson
+from apps.academy.models import (
+    AcademyEvent,
+    AcademyMembership,
+    Assignment,
+    Course,
+    CourseCategory,
+    Enrollment,
+    Institution,
+    LearningResource,
+    Lesson,
+    LiveClass,
+    MentorAssignment,
+)
 from apps.streaming.models import Stream, StreamChatMessage
 from apps.rooms.models import RoomPoll, VoiceRoom
 from apps.radio.models import Podcast, RadioStation
@@ -171,41 +183,97 @@ class Command(BaseCommand):
             demo.save()
         UserRole.objects.get_or_create(user=demo, role=role_map["member"])
 
-        chayil, _ = Institution.objects.get_or_create(
+        chayil, _ = Institution.objects.update_or_create(
             code="chayil",
             defaults={
-                "name": "Chayil",
-                "tagline": "Excellence in Kingdom Learning",
-                "description": "Chayil is the flagship institution under Rhema Academy — forming disciples, leaders, and marketplace believers.",
+                "name": "Chayil Company Intensive",
+                "tagline": "Leadership • Discipleship • Transformation",
+                "description": "CCI operates its academy on RhemaVoice infrastructure. RhemaVoice hosts the platform; CCI manages curriculum, students, mentors, and certificates.",
                 "logo_key": "chayil_logo",
+                "primary_color": "#100030",
+                "accent_color": "#DFA622",
+                "program_weeks": 31,
+                "student_count": 325,
+                "is_featured": True,
                 "is_active": True,
             },
         )
+        Institution.objects.get_or_create(
+            code="school-of-ministry",
+            defaults={
+                "name": "School of Ministry",
+                "tagline": "Equip. Send. Serve.",
+                "description": "Ministry training academy hosted on RhemaVoice.",
+                "program_weeks": 24,
+                "student_count": 120,
+                "is_active": True,
+            },
+        )
+        Institution.objects.get_or_create(
+            code="bible-school",
+            defaults={
+                "name": "Bible School",
+                "tagline": "Grounded in the Word",
+                "description": "Scripture-centered academy partner.",
+                "program_weeks": 40,
+                "student_count": 210,
+                "is_active": True,
+            },
+        )
+        Institution.objects.get_or_create(
+            code="leadership-institute",
+            defaults={
+                "name": "Leadership Institute",
+                "tagline": "Kingdom leaders for every sphere",
+                "program_weeks": 16,
+                "student_count": 95,
+                "is_active": True,
+            },
+        )
+        Institution.objects.get_or_create(
+            code="business-academy",
+            defaults={
+                "name": "Business Academy",
+                "tagline": "Marketplace discipleship",
+                "program_weeks": 12,
+                "student_count": 80,
+                "is_active": True,
+            },
+        )
+
         cat_disc, _ = CourseCategory.objects.get_or_create(slug="discipleship", defaults={"name": "Discipleship"})
         cat_lead, _ = CourseCategory.objects.get_or_create(slug="leadership", defaults={"name": "Leadership"})
         cat_bible, _ = CourseCategory.objects.get_or_create(slug="bible", defaults={"name": "Bible Studies"})
 
-        if not Course.objects.exists():
+        if not Course.objects.filter(institution=chayil).exists():
             course = Course.objects.create(
                 title="Foundations of Faith",
-                summary="Core doctrines, prayer, and walking with the Word — delivered by Chayil under Rhema Academy.",
+                summary="Core doctrines, prayer, and walking with the Word — CCI curriculum on RhemaVoice.",
                 institution=chayil,
                 category=cat_disc,
                 level="beginner",
+                week_number=1,
                 duration_hours=6,
                 xp_reward=150,
                 is_published=True,
                 is_live_eligible=True,
             )
-            Lesson.objects.create(course=course, title="The Word of God", order=1, content="In the beginning was the Word…", duration_min=20)
-            Lesson.objects.create(course=course, title="Prayer Life", order=2, content="Watch and pray…", duration_min=18)
-            Lesson.objects.create(course=course, title="Faith that Works", order=3, content="Faith without works is dead…", duration_min=22)
+            Lesson.objects.create(
+                course=course, title="Tuesday Teaching", order=1, week_number=7, content="Identity in Christ", duration_min=90
+            )
+            Lesson.objects.create(
+                course=course, title="Friday War Room", order=2, week_number=7, content="Prayer & warfare", duration_min=60
+            )
+            Lesson.objects.create(
+                course=course, title="The Word of God", order=1, week_number=1, content="In the beginning was the Word…", duration_min=20
+            )
             Course.objects.create(
                 title="Leadership in Ministry",
                 summary="Servant leadership for pastors, teachers, and marketplace ministers.",
                 institution=chayil,
                 category=cat_lead,
                 level="intermediate",
+                week_number=8,
                 duration_hours=8,
                 xp_reward=220,
                 is_published=True,
@@ -216,10 +284,100 @@ class Command(BaseCommand):
                 institution=chayil,
                 category=cat_bible,
                 level="intermediate",
+                week_number=10,
                 duration_hours=10,
                 xp_reward=300,
                 is_published=True,
                 is_live_eligible=True,
+            )
+
+        from django.utils import timezone
+
+        AcademyMembership.objects.update_or_create(
+            institution=chayil,
+            user=demo,
+            defaults={"role": "student", "current_week": 7, "overall_progress": 22, "attendance_pct": 96, "is_active": True},
+        )
+        AcademyMembership.objects.update_or_create(
+            institution=chayil,
+            user=admin_user,
+            defaults={"role": "academy_admin", "is_active": True},
+        )
+        MentorAssignment.objects.update_or_create(
+            institution=chayil,
+            student=demo,
+            defaults={"mentor": admin_user, "rating": 4.9, "notes": "Spiritual formation & accountability"},
+        )
+        for course in Course.objects.filter(institution=chayil):
+            Enrollment.objects.get_or_create(user=demo, course=course, defaults={"progress": 22 if course.week_number <= 7 else 0})
+
+        if not LiveClass.objects.filter(institution=chayil).exists():
+            LiveClass.objects.create(
+                institution=chayil,
+                title="Tuesday Teaching (Live)",
+                instructor_name="Mrs. Angelica Collins",
+                starts_at=timezone.now(),
+                status="live",
+                viewer_count=184,
+                week_number=7,
+            )
+            LiveClass.objects.create(
+                institution=chayil,
+                title="Friday War Room",
+                instructor_name="Pastor Ada",
+                starts_at=timezone.now(),
+                status="scheduled",
+                week_number=7,
+            )
+
+        if not Assignment.objects.filter(institution=chayil).exists():
+            Assignment.objects.create(
+                institution=chayil,
+                title="Identity Restoration",
+                instructions="Write a reflection on your identity in Christ. Upload Word, PDF, image, or video.",
+                due_at=timezone.now(),
+                max_marks=100,
+            )
+            Assignment.objects.create(
+                institution=chayil,
+                title="Prayer Journal Week 7",
+                instructions="Submit your weekly prayer journal entries.",
+                due_at=timezone.now(),
+                max_marks=50,
+            )
+
+        if not LearningResource.objects.filter(institution=chayil).exists():
+            LearningResource.objects.create(
+                institution=chayil, title="Identity in Christ Notes", resource_type="pdf", description="Week 7 handout"
+            )
+            LearningResource.objects.create(
+                institution=chayil, title="Worship & Prayer Session", resource_type="audio", description="Archive recording"
+            )
+            LearningResource.objects.create(
+                institution=chayil, title="Tuesday Teaching Replay", resource_type="video", description="Last week's class"
+            )
+
+        if not AcademyEvent.objects.filter(institution=chayil).exists():
+            AcademyEvent.objects.create(
+                institution=chayil,
+                title="Tuesday Teaching",
+                event_type="class",
+                starts_at=timezone.now(),
+                location="Live Classroom",
+            )
+            AcademyEvent.objects.create(
+                institution=chayil,
+                title="Assignment Deadline — Identity Restoration",
+                event_type="deadline",
+                starts_at=timezone.now(),
+                location="",
+            )
+            AcademyEvent.objects.create(
+                institution=chayil,
+                title="Prayer Meeting",
+                event_type="prayer",
+                starts_at=timezone.now(),
+                location="Rhema Rooms",
             )
 
         if not Stream.objects.exists():

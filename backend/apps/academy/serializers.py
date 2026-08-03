@@ -1,12 +1,40 @@
 from rest_framework import serializers
 
-from .models import Certificate, Course, CourseCategory, Enrollment, Institution, Lesson, Quiz
+from .models import (
+    AcademyEvent,
+    AcademyMembership,
+    Assignment,
+    AssignmentSubmission,
+    Certificate,
+    Course,
+    CourseCategory,
+    Enrollment,
+    Institution,
+    LearningResource,
+    Lesson,
+    LiveClass,
+    MentorAssignment,
+    Quiz,
+)
 
 
 class InstitutionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Institution
-        fields = ["id", "code", "name", "tagline", "description", "logo_key", "is_active"]
+        fields = [
+            "id",
+            "code",
+            "name",
+            "tagline",
+            "description",
+            "logo_key",
+            "primary_color",
+            "accent_color",
+            "program_weeks",
+            "student_count",
+            "is_featured",
+            "is_active",
+        ]
 
 
 class CourseCategorySerializer(serializers.ModelSerializer):
@@ -18,7 +46,7 @@ class CourseCategorySerializer(serializers.ModelSerializer):
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
-        fields = ["id", "title", "content", "order", "duration_min", "is_downloadable"]
+        fields = ["id", "title", "content", "order", "duration_min", "week_number", "is_downloadable"]
 
 
 class QuizSerializer(serializers.ModelSerializer):
@@ -40,6 +68,7 @@ class CourseSerializer(serializers.ModelSerializer):
             "title",
             "summary",
             "level",
+            "week_number",
             "duration_hours",
             "xp_reward",
             "is_published",
@@ -83,4 +112,51 @@ class CertificateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Certificate
-        fields = ["id", "code", "course_title", "issued_at"]
+        fields = ["id", "code", "course_title", "status", "issued_at"]
+
+
+class LiveClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LiveClass
+        fields = ["id", "title", "instructor_name", "starts_at", "status", "viewer_count", "week_number"]
+
+
+class AssignmentSerializer(serializers.ModelSerializer):
+    my_submission = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Assignment
+        fields = ["id", "title", "instructions", "due_at", "max_marks", "my_submission"]
+
+    def get_my_submission(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+        sub = obj.submissions.filter(user=request.user).first()
+        if not sub:
+            return None
+        return {
+            "id": str(sub.id),
+            "status": sub.status,
+            "file_name": sub.file_name,
+            "score": sub.score,
+            "notes": sub.notes,
+        }
+
+
+class LearningResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LearningResource
+        fields = ["id", "title", "resource_type", "description", "url", "created_at"]
+
+
+class AcademyEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AcademyEvent
+        fields = ["id", "title", "event_type", "starts_at", "ends_at", "location"]
+
+
+class MentorSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    rating = serializers.FloatField()
+    notes = serializers.CharField(allow_blank=True)

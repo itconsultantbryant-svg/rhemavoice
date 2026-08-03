@@ -166,9 +166,27 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
     academy: {
       institutions: () =>
         request<
-          Array<{ id: string; code: string; name: string; tagline: string; description: string; logo_key: string }>
+          Array<{
+            id: string;
+            code: string;
+            name: string;
+            tagline: string;
+            description: string;
+            logo_key: string;
+            primary_color?: string;
+            accent_color?: string;
+            program_weeks?: number;
+            student_count?: number;
+            is_featured?: boolean;
+          }>
         >("/academy/institutions/"),
-      courses: () => request<Array<Record<string, unknown>>>("/academy/courses/"),
+      institution: (code: string) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/`),
+      dashboard: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/dashboard/`),
+      courses: (institution?: string) =>
+        request<Array<Record<string, unknown>>>(
+          `/academy/courses/${institution ? `?institution=${institution}` : ""}`
+        ),
       course: (id: string) => request<Record<string, unknown>>(`/academy/courses/${id}/`),
       enroll: (id: string) => request<Record<string, unknown>>(`/academy/courses/${id}/enroll/`, { method: "POST" }),
       progress: (id: string, progress: number) =>
@@ -176,11 +194,21 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
           method: "POST",
           body: JSON.stringify({ progress }),
         }),
+      assignments: (institution?: string) =>
+        request<Array<Record<string, unknown>>>(
+          `/academy/assignments/${institution ? `?institution=${institution}` : ""}`
+        ),
+      submitAssignment: (id: string, payload: { notes?: string; file_name?: string }) =>
+        request<Record<string, unknown>>(`/academy/assignments/${id}/submit/`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }),
       me: () =>
         request<{
           enrollments: Array<Record<string, unknown>>;
           certificates: Array<Record<string, unknown>>;
           categories: Array<{ id: string; name: string; slug: string }>;
+          academies?: Array<Record<string, unknown>>;
         }>("/academy/me/"),
     },
     streaming: {

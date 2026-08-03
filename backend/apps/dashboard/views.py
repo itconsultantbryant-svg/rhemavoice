@@ -2,6 +2,18 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.streaming.models import Stream
+from apps.radio.models import RadioStation
+from apps.rooms.models import VoiceRoom
+from apps.learn.models import Lesson as LearnLesson, LearningSession
+from apps.academy.models import Enrollment
+from apps.business.models import Business
+from apps.opportunities.models import Opportunity
+from apps.transport.models import TransportProvider
+from apps.ticketing.models import Event
+from apps.air.models import FlightListing
+from apps.notifications.models import Notification
+
 
 class DashboardView(APIView):
     def get(self, request):
@@ -14,6 +26,77 @@ class DashboardView(APIView):
         else:
             greeting = f"Good evening, {name}"
 
+        live_churches = list(
+            Stream.objects.filter(status="live")[:5].values("id", "title", "church_name", "viewers")
+        )
+
+        live_radio = list(
+            RadioStation.objects.filter(is_live=True)[:5].values("id", "name", "genre", "listeners")
+        )
+        for r in live_radio:
+            r["station"] = r.pop("name")
+            r["program"] = r.pop("genre", "")
+
+        live_rooms = list(
+            VoiceRoom.objects.filter(is_live=True)[:5].values("id", "title", "participant_count")
+        )
+        for room in live_rooms:
+            room["host"] = "Host"
+            room["participants"] = room.pop("participant_count")
+
+        learn_highlights = list(
+            LearnLesson.objects.all()[:3].values("id", "title", "teacher_name")
+        )
+        for lh in learn_highlights:
+            lh["teacher"] = lh.pop("teacher_name")
+
+        academy_courses = []
+        enrollments = Enrollment.objects.filter(user=request.user).select_related("course", "course__institution")[:5]
+        for e in enrollments:
+            academy_courses.append({
+                "id": str(e.course.id),
+                "title": e.course.title,
+                "academy": e.course.institution.name if e.course.institution else "",
+                "progress": e.progress,
+            })
+
+        featured_businesses = list(
+            Business.objects.filter(featured=True)[:4].values("id", "name", "category")
+        )
+
+        featured_opportunities = list(
+            Opportunity.objects.filter(status="open")[:4].values("id", "title", "type", "organization")
+        )
+
+        transport_services = list(
+            TransportProvider.objects.all()[:4].values("id", "name", "city")
+        )
+        for ts in transport_services:
+            ts["company"] = ts.pop("name")
+            ts["service"] = "Transportation"
+            ts["location"] = ts.pop("city")
+
+        now = timezone.now()
+        upcoming_events = list(
+            Event.objects.filter(starts_at__gte=now, is_published=True)[:4].values("id", "title", "starts_at", "venue", "category")
+        )
+        for evt in upcoming_events:
+            evt["location"] = evt.pop("venue", "")
+            evt["type"] = evt.pop("category", "ticketing")
+            evt["starts_at"] = evt["starts_at"].isoformat() if evt.get("starts_at") else ""
+
+        featured_flights = list(
+            FlightListing.objects.all()[:4].values("id", "departure_city", "arrival_city", "price_cents", "currency")
+        )
+        for fl in featured_flights:
+            fl["route"] = f"{fl.pop('departure_city')} → {fl.pop('arrival_city')}"
+            price = fl.pop("price_cents", 0)
+            currency = fl.pop("currency", "USD")
+            fl["agency"] = "Travel Partner"
+            fl["price_label"] = f"From ${price // 100}" if price else "Contact agency"
+
+        notifications_unread = Notification.objects.filter(user=request.user, is_read=False).count()
+
         return Response(
             {
                 "greeting": greeting,
@@ -23,114 +106,22 @@ class DashboardView(APIView):
                     "text": "In the beginning was the Word, and the Word was with God, and the Word was God.",
                     "translation": "ESV",
                 },
-                "live_churches": [
-                    {
-                        "id": "stream-1",
-                        "title": "Sunday Live Service",
-                        "church_name": "City Gate Church",
-                        "viewers": 842,
-                    },
-                    {
-                        "id": "stream-2",
-                        "title": "Evening Worship",
-                        "church_name": "Grace Chapel",
-                        "viewers": 312,
-                    },
-                ],
-                "live_radio": [
-                    {
-                        "id": "radio-1",
-                        "station": "Rhema FM",
-                        "program": "Morning Manna",
-                        "listeners": 1204,
-                    },
-                    {
-                        "id": "radio-2",
-                        "station": "Kingdom Voice Radio",
-                        "program": "Midday Praise",
-                        "listeners": 486,
-                    },
-                ],
-                "live_rooms": [
-                    {
-                        "id": "room-1",
-                        "title": "Evening Prayer Gathering",
-                        "host": "Pastor Ada",
-                        "participants": 184,
-                    },
-                    {
-                        "id": "room-2",
-                        "title": "Liberian Language Study",
-                        "host": "Teacher James",
-                        "participants": 67,
-                    },
-                ],
-                "learn_highlights": [
-                    {"id": "learn-1", "title": "Introduction to Kpelle", "teacher": "Teacher Marie"},
-                    {"id": "learn-2", "title": "Bible Foundations", "teacher": "Pastor Daniel"},
-                ],
-                "academy_courses": [
-                    {"id": "c1", "title": "Foundations of Faith", "academy": "Chayil Company Intensive", "progress": 62},
-                    {"id": "c2", "title": "Leadership in Ministry", "academy": "Leadership Academy", "progress": 28},
-                ],
-                "featured_businesses": [
-                    {"id": "b1", "name": "Kingdom Crafts Co.", "category": "Retail"},
-                    {"id": "b2", "name": "Grace Tech Solutions", "category": "Services"},
-                ],
-                "featured_jobs": [
-                    {"id": "j1", "title": "Youth Pastor", "company": "City Gate Church"},
-                    {"id": "j2", "title": "Media Producer", "company": "Rhema Studios"},
-                ],
-                "featured_scholarships": [
-                    {"id": "s1", "title": "Ministry Leadership Scholarship", "organization": "Bible Training Academy"},
-                    {"id": "s2", "title": "Women in Tech Scholarship", "organization": "Grace Foundation"},
-                ],
-                "featured_grants": [
-                    {"id": "g1", "title": "Youth Empowerment Grant", "organization": "Kingdom Partners NGO"},
-                    {"id": "g2", "title": "Small Business Startup Grant", "organization": "Liberia Development Fund"},
-                ],
-                "featured_loans": [
-                    {"id": "l1", "title": "Student Education Loan", "institution": "Faith Finance Partners"},
-                    {"id": "l2", "title": "Small Enterprise Loan", "institution": "Kingdom Credit Union"},
-                ],
-                "transport_services": [
-                    {"id": "t1", "company": "Monrovia Express", "service": "Airport Transfer", "location": "Monrovia"},
-                    {"id": "t2", "company": "Liberia Shuttle Co.", "service": "Intercity Shuttle", "location": "Buchanan"},
-                ],
-                "upcoming_events": [
-                    {
-                        "id": "evt-1",
-                        "title": "Kingdom Leadership Summit",
-                        "starts_at": timezone.now().isoformat(),
-                        "location": "Monrovia Convention Center",
-                        "type": "ticketing",
-                    },
-                    {
-                        "id": "evt-2",
-                        "title": "Worship Night Live",
-                        "starts_at": timezone.now().isoformat(),
-                        "location": "Online / Live Stream",
-                        "type": "streaming",
-                    },
-                ],
-                "featured_flights": [
-                    {"id": "f1", "route": "Monrovia → Accra", "agency": "Grace Travel Agency", "price_label": "From $420"},
-                    {"id": "f2", "route": "Monrovia → Lagos", "agency": "Kingdom Air Services", "price_label": "From $380"},
-                ],
-                "partner_updates": [
-                    {"id": "pu1", "title": "New courses from Chayil Academy", "partner": "Chayil Company Intensive", "type": "academy"},
-                    {"id": "pu2", "title": "Rhema FM launches evening program", "partner": "Rhema FM", "type": "radio"},
-                ],
-                "featured_opportunities": [
-                    {"id": "fo1", "title": "Community Development Grant", "type": "grant", "organization": "Kingdom Partners NGO"},
-                    {"id": "fo2", "title": "Worship Leader — Full Time", "type": "job", "organization": "Grace Chapel"},
-                ],
-                "notifications_unread": 3,
-                "advertisement": {
-                    "id": "ad1",
-                    "title": "Rhema Leadership Summit — Get your tickets",
-                    "cta": "View events",
-                    "image_url": "",
-                },
+                "live_churches": live_churches,
+                "live_radio": live_radio,
+                "live_rooms": live_rooms,
+                "learn_highlights": learn_highlights,
+                "academy_courses": academy_courses,
+                "featured_businesses": featured_businesses,
+                "featured_jobs": [],
+                "featured_scholarships": [],
+                "featured_grants": [],
+                "featured_loans": [],
+                "transport_services": transport_services,
+                "upcoming_events": upcoming_events,
+                "featured_flights": featured_flights,
+                "partner_updates": [],
+                "featured_opportunities": featured_opportunities,
+                "notifications_unread": notifications_unread,
+                "advertisement": None,
             }
         )

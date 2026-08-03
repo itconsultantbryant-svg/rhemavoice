@@ -107,9 +107,7 @@ export default function Dashboard() {
               style={{ width: "30%" }}
             >
               <Pressable
-                onPress={() =>
-                  router.push(m.id === "academy" ? "/(app)/academy" : `/(app)/module/${m.id}`)
-                }
+                onPress={() => router.push(`/(app)/${m.id}`)}
                 style={({ pressed }) => ({
                   transform: [{ scale: pressed ? 0.95 : 1 }],
                   backgroundColor: colors.elevated,

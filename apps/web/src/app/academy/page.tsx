@@ -1,121 +1,95 @@
 "use client";
 
-import { FadeIn, brand } from "@rhemavoice/ui";
+import { FadeIn } from "@rhemavoice/ui";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChayilLogo } from "@/components/Brand";
+import { ChayilLogo, RhemaLogo } from "@/components/Brand";
 import { ModuleShell } from "@/components/ModuleShell";
 import { useAuth } from "@/lib/auth";
 
-type Course = {
+type Academy = {
   id: string;
-  title: string;
-  summary: string;
-  level: string;
-  duration_hours: number;
-  xp_reward: number;
-  category_name: string;
-  lessons_count: number;
-  my_progress?: { progress: number; xp_earned: number; completed: boolean } | null;
-  institution?: { name: string; code: string } | null;
+  code: string;
+  name: string;
+  tagline: string;
+  description: string;
+  logo_key: string;
+  program_weeks?: number;
+  student_count?: number;
+  is_featured?: boolean;
 };
 
-export default function AcademyPage() {
+export default function AcademyChoosePage() {
   const { api, user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [academies, setAcademies] = useState<Academy[]>([]);
 
   useEffect(() => {
     if (!user) return;
-    api.academy.courses().then((data) => setCourses(data as unknown as Course[])).catch(() => setCourses([]));
+    api.academy.institutions().then((list) => setAcademies(list as Academy[])).catch(() => setAcademies([]));
   }, [api, user]);
 
-  async function enroll(id: string) {
-    setBusyId(id);
-    try {
-      await api.academy.enroll(id);
-      const data = await api.academy.courses();
-      setCourses(data as unknown as Course[]);
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function advance(id: string, current = 0) {
-    setBusyId(id);
-    try {
-      await api.academy.progress(id, Math.min(100, current + 25));
-      const data = await api.academy.courses();
-      setCourses(data as unknown as Course[]);
-    } finally {
-      setBusyId(null);
-    }
-  }
+  const featured = academies.find((a) => a.is_featured) || academies.find((a) => a.code === "chayil");
+  const others = academies.filter((a) => a.id !== featured?.id);
 
   return (
     <ModuleShell
       moduleId="academy"
       title="Rhema Academy"
-      description="Courses, lessons, quizzes, certificates, and live classes — powered by Chayil."
+      description="Choose your academy. RhemaVoice hosts the platform — each organization runs its own program."
     >
       <FadeIn>
-        <div className="rv-card mb-6 flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-purple-900 to-purple-700 p-5 text-white">
-          <ChayilLogo size="lg" onDark />
-          <div className="max-w-md text-sm text-white/85">
-            <p className="font-display text-xl text-gold-300">{brand.academyInstitutionFull}</p>
-            <p className="mt-1">Flagship institution under Rhema Academy — discipleship, leadership, and Bible studies.</p>
-          </div>
-        </div>
+        <p className="mb-6 text-sm text-[var(--rv-ink-muted)]">
+          RhemaVoice provides the secure learning infrastructure. Your academy manages curriculum, students, mentors,
+          and certificates.
+        </p>
 
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-2xl">Course catalog</h2>
-          <Link href="/dashboard" className="text-sm text-[var(--rv-ink-muted)]">
-            Home
-          </Link>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {courses.map((course) => (
-            <article key={course.id} className="rv-card p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-gold-500">
-                {course.institution?.name || brand.academyInstitution} · {course.category_name || "General"}
-              </p>
-              <h3 className="font-display mt-2 text-xl">{course.title}</h3>
-              <p className="mt-2 text-sm text-[var(--rv-ink-muted)]">{course.summary}</p>
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-[var(--rv-ink-muted)]">
-                <span>{course.level}</span>
-                <span>{course.duration_hours}h</span>
-                <span>{course.lessons_count} lessons</span>
-                <span>{course.xp_reward} XP</span>
-              </div>
-              {course.my_progress && (
-                <div className="mt-3">
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span>Progress</span>
-                    <span>{course.my_progress.progress}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-purple-900/10 dark:bg-white/10">
-                    <div className="h-full rounded-full bg-gold-500" style={{ width: `${course.my_progress.progress}%` }} />
-                  </div>
+        {featured && (
+          <Link
+            href={`/academy/${featured.code}`}
+            className="rv-card mb-6 block overflow-hidden bg-gradient-to-br from-purple-900 to-navy-900 p-6 text-white transition hover:border-gold-500/50"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <ChayilLogo size="lg" onDark />
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-gold-300">Featured academy</p>
+                  <h2 className="font-display mt-1 text-2xl md:text-3xl">{featured.name}</h2>
+                  <p className="mt-1 text-sm text-white/80">{featured.tagline}</p>
                 </div>
-              )}
-              <div className="mt-4 flex gap-2">
-                {!course.my_progress ? (
-                  <button className="rv-btn-primary" disabled={busyId === course.id} onClick={() => enroll(course.id)}>
-                    {busyId === course.id ? "Enrolling…" : "Enroll"}
-                  </button>
-                ) : (
-                  <button
-                    className="rv-btn-primary"
-                    disabled={busyId === course.id || course.my_progress.completed}
-                    onClick={() => advance(course.id, course.my_progress?.progress)}
-                  >
-                    {course.my_progress.completed ? "Completed" : "Continue lesson"}
-                  </button>
-                )}
               </div>
-            </article>
+              <span className="rv-btn bg-gold-500 text-navy-900">Enter Academy</span>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-4 text-sm text-gold-200">
+              <span>{featured.program_weeks || 31} Weeks</span>
+              <span>{featured.student_count || 0} Students</span>
+              <span>Powered by RhemaVoice</span>
+            </div>
+          </Link>
+        )}
+
+        <h3 className="font-display mb-3 text-xl">Other academies</h3>
+        <div className="space-y-3">
+          {others.map((a) => (
+            <Link
+              key={a.id}
+              href={`/academy/${a.code}`}
+              className="rv-card flex items-center justify-between gap-4 p-4 transition hover:border-gold-500/40"
+            >
+              <div>
+                <p className="font-display text-lg">{a.name}</p>
+                <p className="text-sm text-[var(--rv-ink-muted)]">{a.tagline || a.description}</p>
+              </div>
+              <span className="text-sm text-gold-500">Enter →</span>
+            </Link>
           ))}
+          {!others.length && !featured && (
+            <p className="text-sm text-[var(--rv-ink-muted)]">No academies available yet.</p>
+          )}
+        </div>
+
+        <div className="mt-8 flex items-center gap-3 text-xs text-[var(--rv-ink-muted)]">
+          <RhemaLogo size="sm" href={undefined} />
+          <span>Technology platform by RhemaVoice Technologies Inc.</span>
         </div>
       </FadeIn>
     </ModuleShell>
