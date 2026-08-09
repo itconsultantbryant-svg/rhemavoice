@@ -4,6 +4,7 @@ import { FadeIn } from "@rhemavoice/ui";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import AppShell from "@/components/AppShell";
 import { ChayilLogo } from "@/components/Brand";
 import { useAuth } from "@/lib/auth";
 
@@ -109,23 +110,27 @@ export default function AcademyTenantPage() {
 
   if (error) {
     return (
-      <main className="mx-auto max-w-lg px-6 py-16">
-        <Link href="/academy" className="text-sm text-[var(--rv-ink-muted)]">
-          ← Choose academy
-        </Link>
-        <p className="mt-6 text-[var(--rv-danger)]">{error}</p>
-        <p className="mt-2 text-sm text-[var(--rv-ink-muted)]">
-          Accounts are issued by your academy administrator. Contact CCI or RhemaVoice support.
-        </p>
-      </main>
+      <AppShell>
+        <main className="mx-auto max-w-lg px-4 py-6 md:px-6">
+          <Link href="/academy" className="text-sm text-[var(--rv-ink-muted)]">
+            ← Choose academy
+          </Link>
+          <p className="mt-6 text-[var(--rv-danger)]">{error}</p>
+          <p className="mt-2 text-sm text-[var(--rv-ink-muted)]">
+            Accounts are issued by your academy administrator. Contact CCI or RhemaVoice support.
+          </p>
+        </main>
+      </AppShell>
     );
   }
 
   if (!dash) {
     return (
-      <main className="grid min-h-screen place-items-center text-sm text-[var(--rv-ink-muted)]">
-        Loading academy…
-      </main>
+      <AppShell>
+        <main className="grid min-h-screen place-items-center text-sm text-[var(--rv-ink-muted)]">
+          Loading academy…
+        </main>
+      </AppShell>
     );
   }
 
@@ -135,8 +140,9 @@ export default function AcademyTenantPage() {
   );
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-      <FadeIn>
+    <AppShell>
+      <main className="mx-auto max-w-5xl px-4 py-6 md:px-6">
+        <FadeIn>
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             {inst.code === "chayil" ? <ChayilLogo size="lg" /> : null}
@@ -280,10 +286,10 @@ export default function AcademyTenantPage() {
           <div className="space-y-4">
             {dash.live_classes.map((c) => (
               <section key={c.id} className="rv-card overflow-hidden p-0">
-                <div className="flex aspect-video items-center justify-center bg-navy-900 text-gold-200">
+                <div className="flex aspect-video items-center justify-center bg-[var(--rv-purple-900)] text-[var(--rv-gold-200)]">
                   <div className="text-center">
                     {c.status === "live" && (
-                      <span className="rounded-full bg-gold-500 px-3 py-1 text-xs font-bold text-navy-900">LIVE</span>
+                      <span className="rounded-full bg-gold-500 px-3 py-1 text-xs font-bold text-[var(--rv-purple-950)]">LIVE</span>
                     )}
                     <p className="font-display mt-3 text-2xl">{c.title}</p>
                     <p className="text-sm opacity-80">{c.instructor_name}</p>
@@ -449,6 +455,7 @@ export default function AcademyTenantPage() {
           </div>
         )}
       </FadeIn>
-    </main>
+      </main>
+    </AppShell>
   );
 }

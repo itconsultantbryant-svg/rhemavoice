@@ -2,10 +2,9 @@
 
 import { FadeIn } from "@rhemavoice/ui";
 import type { ModuleId, ModuleMeta } from "@rhemavoice/shared";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState, type ReactNode } from "react";
-import { RhemaLogo } from "@/components/Brand";
+import AppShell from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 
 const PROFILE_FIELDS: Record<string, string[]> = {
@@ -59,59 +58,59 @@ export function ModuleShell({
   }
 
   if (!user || !meta) {
-    return <main className="grid min-h-screen place-items-center text-[var(--rv-ink-muted)]">Opening module…</main>;
+    return (
+      <AppShell>
+        <main className="grid min-h-screen place-items-center text-[var(--rv-ink-muted)]">Opening module…</main>
+      </AppShell>
+    );
   }
 
   if (needsProfile) {
     const fields = PROFILE_FIELDS[moduleId] || ["Full Name", "Country", "Phone"];
     return (
-      <main className="mx-auto max-w-lg px-6 py-12">
-        <FadeIn>
-          <Link href="/dashboard" className="text-sm text-[var(--rv-ink-muted)]">
-            ← Dashboard
-          </Link>
-          <h1 className="font-display mt-4 text-3xl">Complete {title} Registration</h1>
-          <p className="mt-2 text-[var(--rv-ink-muted)]">Finish your module profile to continue.</p>
-          <form onSubmit={submitProfile} className="mt-8 space-y-3">
-            {fields.map((label) => {
-              const key = label.toLowerCase().replace(/\s+/g, "_");
-              return (
-                <input
-                  key={key}
-                  className="rv-input"
-                  placeholder={label}
-                  required
-                  value={form[key] || ""}
-                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                />
-              );
-            })}
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" required /> Accept Terms
-            </label>
-            <button className="rv-btn-primary w-full" disabled={busy}>
-              {busy ? "Saving…" : "Continue"}
-            </button>
-          </form>
-        </FadeIn>
-      </main>
+      <AppShell>
+        <main className="mx-auto max-w-lg px-6 py-10">
+          <FadeIn>
+            <p className="text-sm uppercase tracking-[0.22em] text-gold-500">RhemaVoice</p>
+            <h1 className="font-display mt-2 text-3xl">Complete {title} Registration</h1>
+            <p className="mt-2 text-[var(--rv-ink-muted)]">Finish your module profile to continue.</p>
+            <form onSubmit={submitProfile} className="mt-8 space-y-3">
+              {fields.map((label) => {
+                const key = label.toLowerCase().replace(/\s+/g, "_");
+                return (
+                  <input
+                    key={key}
+                    className="rv-input"
+                    placeholder={label}
+                    required
+                    value={form[key] || ""}
+                    onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  />
+                );
+              })}
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" required /> Accept Terms
+              </label>
+              <button className="rv-btn-primary w-full" disabled={busy}>
+                {busy ? "Saving…" : "Continue"}
+              </button>
+            </form>
+          </FadeIn>
+        </main>
+      </AppShell>
     );
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <FadeIn>
-        <div className="mb-6 flex items-center gap-3">
-          <RhemaLogo size="sm" href="/dashboard" />
-          <Link href="/dashboard" className="text-sm text-[var(--rv-ink-muted)]">
-            ← Dashboard
-          </Link>
-        </div>
-        <p className="text-sm uppercase tracking-[0.22em] text-gold-500">RhemaVoice</p>
-        <h1 className="font-display mt-2 text-4xl">{title}</h1>
-        <p className="mt-2 max-w-2xl text-[var(--rv-ink-muted)]">{description}</p>
-        <div className="mt-8">{children}</div>
-      </FadeIn>
-    </main>
+    <AppShell>
+      <main className="mx-auto max-w-5xl px-4 py-6 md:px-6">
+        <FadeIn>
+          <p className="text-sm uppercase tracking-[0.22em] text-gold-500">RhemaVoice</p>
+          <h1 className="font-display mt-2 text-3xl md:text-4xl">{title}</h1>
+          <p className="mt-2 max-w-2xl text-[var(--rv-ink-muted)]">{description}</p>
+          <div className="mt-8">{children}</div>
+        </FadeIn>
+      </main>
+    </AppShell>
   );
 }

@@ -69,7 +69,7 @@ export default function ModuleScreen() {
       <ScrollView contentContainerStyle={{ padding: 20 }} style={{ backgroundColor: colors.surface }}>
         <Animated.View entering={FadeInUp.duration(280)}>
           <Button onPress={() => router.back()}>Back</Button>
-          <Text variant="headlineSmall" style={{ fontWeight: "700", color: colors.navy900 }}>
+          <Text variant="headlineSmall" style={{ fontWeight: "700", color: colors.ink }}>
             Complete {meta.name} Registration
           </Text>
           {fields.map((label) => {
@@ -89,7 +89,7 @@ export default function ModuleScreen() {
             <Checkbox status={accepted ? "checked" : "unchecked"} onPress={() => setAccepted((v) => !v)} />
             <Text>Accept Terms</Text>
           </View>
-          <Button mode="contained" disabled={!accepted || busy} loading={busy} onPress={saveProfile} style={{ marginTop: 16, backgroundColor: colors.navy900 }}>
+          <Button mode="contained" disabled={!accepted || busy} loading={busy} onPress={saveProfile} style={{ marginTop: 16, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
             Continue
           </Button>
         </Animated.View>
@@ -106,7 +106,7 @@ export default function ModuleScreen() {
             <Image source={require("../../../assets/brand/chayil_logo.jpeg")} style={{ width: 56, height: 56, borderRadius: 14 }} />
             <View>
               <Text style={{ color: colors.gold500, letterSpacing: 2, textTransform: "uppercase", fontSize: 10 }}>Institution</Text>
-              <Text style={{ fontWeight: "700", color: colors.navy900, fontSize: 18 }}>Chayil</Text>
+              <Text style={{ fontWeight: "700", color: colors.ink, fontSize: 18 }}>Chayil</Text>
               <Text style={{ color: colors.inkMuted, fontSize: 12 }}>Under Rhema Academy</Text>
             </View>
           </View>
@@ -114,7 +114,7 @@ export default function ModuleScreen() {
           <Image source={require("../../../assets/brand/rhemavoice_logo.jpeg")} style={{ width: 44, height: 44, borderRadius: 22, marginTop: 8 }} />
         )}
         <Text style={{ color: colors.gold500, letterSpacing: 3, textTransform: "uppercase", fontSize: 11, marginTop: 16 }}>RhemaVoice</Text>
-        <Text variant="headlineMedium" style={{ fontWeight: "700", color: colors.navy900, marginTop: 6 }}>{meta.name}</Text>
+        <Text variant="headlineMedium" style={{ fontWeight: "700", color: colors.ink, marginTop: 6 }}>{meta.name}</Text>
         <Text style={{ color: colors.inkMuted, marginTop: 8 }}>{meta.description}</Text>
         <View style={{ marginTop: 20, backgroundColor: colors.elevated, borderRadius: 14, padding: 16 }}>
           <Text variant="titleMedium">Overview</Text>

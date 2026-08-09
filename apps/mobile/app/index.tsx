@@ -27,6 +27,6 @@ export default function SplashScreen() {
     );
   }
 
-  if (user) return <Redirect href="/(app)/dashboard" />;
+  if (user) return <Redirect href="/(app)/(tabs)" />;
   return <Redirect href="/welcome" />;
 }

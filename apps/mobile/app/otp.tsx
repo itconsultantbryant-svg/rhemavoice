@@ -21,7 +21,7 @@ export default function Otp() {
       const res = await api.auth.verifyOtp(String(challenge), code);
       await tokenStore.setTokens(res.tokens);
       dispatch(setUser(res.user));
-      router.replace("/(app)/dashboard");
+      router.replace("/(app)/(tabs)");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "OTP failed");
     } finally {
@@ -33,12 +33,12 @@ export default function Otp() {
     <View style={{ flex: 1, backgroundColor: colors.surface, padding: 24, justifyContent: "center" }}>
       <Animated.View entering={FadeInUp.duration(280)}>
         <Text style={{ color: colors.gold500, letterSpacing: 3, textTransform: "uppercase", fontSize: 12 }}>OTP</Text>
-        <Text variant="headlineMedium" style={{ color: colors.navy900, marginTop: 8, fontWeight: "700" }}>
+        <Text variant="headlineMedium" style={{ color: colors.ink, marginTop: 8, fontWeight: "800" }}>
           Verify your session
         </Text>
-        <TextInput mode="outlined" label="Code" value={code} onChangeText={setCode} keyboardType="number-pad" style={{ marginTop: 20 }} maxLength={6} />
+        <TextInput mode="outlined" label="Code" value={code} onChangeText={setCode} keyboardType="number-pad" style={{ marginTop: 20, backgroundColor: colors.elevated }} textColor={colors.ink} maxLength={6} />
         {!!error && <Text style={{ color: colors.danger, marginTop: 8 }}>{error}</Text>}
-        <Button mode="contained" onPress={submit} loading={busy} style={{ marginTop: 20, backgroundColor: colors.navy900 }}>
+        <Button mode="contained" onPress={submit} loading={busy} style={{ marginTop: 20, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
           Enter RhemaVoice
         </Button>
       </Animated.View>

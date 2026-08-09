@@ -1,8 +1,8 @@
 "use client";
 
 import { FadeIn } from "@rhemavoice/ui";
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import AdminShell from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
 
 export default function TogglesPage() {
@@ -20,27 +20,26 @@ export default function TogglesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <FadeIn>
-        <Link href="/dashboard" className="text-sm text-[var(--rv-ink-muted)]">
-          ← Dashboard
-        </Link>
-        <h1 className="font-display mt-4 text-3xl">Feature Toggles</h1>
-        <div className="mt-6 space-y-3">
-          {toggles.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => flip(t.key, t.enabled)}
-              className="rv-card flex w-full items-center justify-between text-left"
-            >
-              <span>{t.label}</span>
-              <span className={t.enabled ? "text-green-700" : "text-[var(--rv-ink-muted)]"}>
-                {t.enabled ? "ON" : "OFF"}
-              </span>
-            </button>
-          ))}
-        </div>
-      </FadeIn>
-    </main>
+    <AdminShell>
+      <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+        <FadeIn>
+          <h1 className="font-display text-3xl">Feature Toggles</h1>
+          <div className="mt-6 space-y-3">
+            {toggles.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => flip(t.key, t.enabled)}
+                className="rv-card flex w-full items-center justify-between text-left"
+              >
+                <span>{t.label}</span>
+                <span className={t.enabled ? "font-semibold text-green-400" : "text-[var(--rv-ink-muted)]"}>
+                  {t.enabled ? "ON" : "OFF"}
+                </span>
+              </button>
+            ))}
+          </div>
+        </FadeIn>
+      </div>
+    </AdminShell>
   );
 }

@@ -93,7 +93,7 @@ export default function ChatScreen() {
     return (
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={80}>
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", padding: 12, borderBottomWidth: 1, borderColor: "rgba(0,0,0,0.08)" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", padding: 12, borderBottomWidth: 1, borderColor: "rgba(248,245,252,0.08)" }}>
             <Button onPress={() => { setActive(null); wsRef.current?.close(); }}>Back</Button>
             <Text variant="titleMedium" style={{ fontWeight: "700", flex: 1 }}>{active.title || "Chat"}</Text>
           </View>
@@ -108,16 +108,16 @@ export default function ChatScreen() {
                 <View style={{ alignSelf: isMe ? "flex-end" : "flex-start", maxWidth: "80%", marginTop: 6 }}>
                   {!isMe && <Text style={{ fontSize: 10, color: colors.gold500, marginBottom: 2 }}>{m.sender_name}</Text>}
                   <View style={{ backgroundColor: isMe ? colors.navy900 : colors.elevated, borderRadius: 12, padding: 10 }}>
-                    <Text style={{ color: isMe ? "#fff" : colors.navy900 }}>{m.body}</Text>
+                    <Text style={{ color: isMe ? "#fff" : colors.ink }}>{m.body}</Text>
                   </View>
                 </View>
               );
             }}
           />
 
-          <View style={{ flexDirection: "row", gap: 8, padding: 12, borderTopWidth: 1, borderColor: "rgba(0,0,0,0.08)" }}>
+          <View style={{ flexDirection: "row", gap: 8, padding: 12, borderTopWidth: 1, borderColor: "rgba(248,245,252,0.08)" }}>
             <TextInput mode="outlined" placeholder="Message…" value={text} onChangeText={setText} style={{ flex: 1 }} dense />
-            <Button mode="contained" onPress={send} compact style={{ backgroundColor: colors.navy900, justifyContent: "center" }}>Send</Button>
+            <Button mode="contained" onPress={send} compact style={{ backgroundColor: colors.gold500, justifyContent: "center" }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>Send</Button>
           </View>
         </View>
       </KeyboardAvoidingView>

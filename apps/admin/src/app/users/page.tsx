@@ -2,8 +2,8 @@
 
 import { FadeIn } from "@rhemavoice/ui";
 import type { User } from "@rhemavoice/shared";
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import AdminShell from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
 
 export default function UsersPage() {
@@ -21,12 +21,10 @@ export default function UsersPage() {
   }, [api, user]);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <FadeIn>
-        <Link href="/dashboard" className="text-sm text-[var(--rv-ink-muted)]">
-          ← Dashboard
-        </Link>
-        <h1 className="font-display mt-4 text-3xl">Users</h1>
+    <AdminShell>
+      <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10">
+        <FadeIn>
+          <h1 className="font-display text-3xl">Users</h1>
         <div className="rv-card mt-6 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -58,7 +56,8 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
-      </FadeIn>
-    </main>
+        </FadeIn>
+      </div>
+    </AdminShell>
   );
 }

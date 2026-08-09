@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import AppShell from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; hint: string; Icon: typeof Sun }[] = [
@@ -71,7 +72,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition duration-rv ${
-        checked ? "bg-gold-500" : "bg-navy-900/15 dark:bg-white/15"
+        checked ? "bg-gold-500" : "bg-white/15"
       }`}
     >
       <span
@@ -159,16 +160,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <FadeIn>
-        <Link href="/dashboard" className="text-sm text-[var(--rv-ink-muted)]">
-          ← Dashboard
-        </Link>
-
-        <div className="mt-4 flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-navy-900 to-navy-700 text-2xl font-semibold text-gold-300">
-            {initials || "RV"}
-          </div>
+    <AppShell>
+      <main className="mx-auto max-w-2xl px-4 py-6 md:px-6">
+        <FadeIn>
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--rv-purple-900)] to-[var(--rv-purple-700)] text-2xl font-semibold text-[var(--rv-gold-300)]">
+              {initials || "RV"}
+            </div>
           <div>
             <h1 className="font-display text-3xl md:text-4xl">Settings</h1>
             <p className="text-sm text-[var(--rv-ink-muted)]">{user.email}</p>
@@ -349,6 +347,7 @@ export default function SettingsPage() {
           </SectionCard>
         </div>
       </FadeIn>
-    </main>
+      </main>
+    </AppShell>
   );
 }

@@ -19,9 +19,11 @@ const FIELDS: Record<string, string[]> = {
 interface Props {
   moduleId: string;
   children: React.ReactNode;
+  /** Hide the "Back" button — use when embedded in a tab (no stack to pop). */
+  hideBack?: boolean;
 }
 
-export function ModuleShell({ moduleId, children }: Props) {
+export function ModuleShell({ moduleId, children, hideBack = false }: Props) {
   const [meta, setMeta] = useState<ModuleMeta | null>(null);
   const [needsProfile, setNeedsProfile] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -59,9 +61,12 @@ export function ModuleShell({ moduleId, children }: Props) {
     return (
       <ScrollView contentContainerStyle={{ padding: 20 }} style={{ backgroundColor: colors.surface }}>
         <Animated.View entering={FadeInUp.duration(280)}>
-          <Button onPress={() => router.back()}>Back</Button>
-          <Text variant="headlineSmall" style={{ fontWeight: "700", color: colors.navy900 }}>
+          {!hideBack && <Button onPress={() => router.back()}>Back</Button>}
+          <Text variant="headlineSmall" style={{ fontWeight: "800", color: colors.ink, marginTop: 8 }}>
             Complete {meta.name} Registration
+          </Text>
+          <Text style={{ color: colors.inkMuted, marginTop: 4 }}>
+            A short profile unlocks this module for you.
           </Text>
           {fields.map((label) => {
             const key = label.toLowerCase().replace(/\s+/g, "_");
@@ -70,17 +75,25 @@ export function ModuleShell({ moduleId, children }: Props) {
                 key={key}
                 mode="outlined"
                 label={label}
+                textColor={colors.ink}
                 value={form[key] || ""}
                 onChangeText={(t) => setForm((f) => ({ ...f, [key]: t }))}
-                style={{ marginTop: 10 }}
+                style={{ marginTop: 10, backgroundColor: colors.elevated }}
               />
             );
           })}
           <View style={{ flexDirection: "row", alignItems: "center", marginTop: 12 }}>
             <Checkbox status={accepted ? "checked" : "unchecked"} onPress={() => setAccepted((v) => !v)} />
-            <Text>Accept Terms</Text>
+            <Text style={{ color: colors.inkMuted }}>Accept Terms</Text>
           </View>
-          <Button mode="contained" disabled={!accepted || busy} loading={busy} onPress={saveProfile} style={{ marginTop: 16, backgroundColor: colors.navy900 }}>
+          <Button
+            mode="contained"
+            disabled={!accepted || busy}
+            loading={busy}
+            onPress={saveProfile}
+            style={{ marginTop: 16, backgroundColor: colors.gold500 }}
+            labelStyle={{ color: colors.purple950, fontWeight: "800" }}
+          >
             Continue
           </Button>
         </Animated.View>

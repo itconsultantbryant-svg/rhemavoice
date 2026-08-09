@@ -33,13 +33,13 @@ export default function Login() {
           style={{ width: 64, height: 64, borderRadius: 32, marginBottom: 12 }}
         />
         <Text style={{ color: colors.gold500, letterSpacing: 3, textTransform: "uppercase", fontSize: 12 }}>Sign in</Text>
-        <Text variant="headlineMedium" style={{ color: colors.navy900, marginTop: 8, fontWeight: "700" }}>
+        <Text variant="headlineMedium" style={{ color: colors.ink, marginTop: 8, fontWeight: "800" }}>
           Welcome back
         </Text>
-        <TextInput mode="outlined" label="Email" value={email} onChangeText={setEmail} style={{ marginTop: 20 }} autoCapitalize="none" />
-        <TextInput mode="outlined" label="Password" value={password} onChangeText={setPassword} secureTextEntry style={{ marginTop: 12 }} />
+        <TextInput mode="outlined" label="Email" value={email} onChangeText={setEmail} style={{ marginTop: 20, backgroundColor: colors.elevated }} textColor={colors.ink} autoCapitalize="none" />
+        <TextInput mode="outlined" label="Password" value={password} onChangeText={setPassword} secureTextEntry style={{ marginTop: 12, backgroundColor: colors.elevated }} textColor={colors.ink} />
         {!!error && <Text style={{ color: colors.danger, marginTop: 8 }}>{error}</Text>}
-        <Button mode="contained" onPress={submit} loading={busy} style={{ marginTop: 20, backgroundColor: colors.navy900 }}>
+        <Button mode="contained" onPress={submit} loading={busy} style={{ marginTop: 20, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
           Continue
         </Button>
         <Text style={{ marginTop: 16, color: colors.inkMuted, textAlign: "center" }}>Dev OTP: 123456</Text>

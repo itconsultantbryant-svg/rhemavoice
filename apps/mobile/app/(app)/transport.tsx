@@ -101,7 +101,7 @@ export default function TransportScreen() {
                 <TextInput mode="outlined" label="Destination" value={destination} onChangeText={setDestination} style={{ marginTop: 10 }} />
                 <TextInput mode="outlined" label="Service type (e.g. airport transfer, taxi)" value={serviceType} onChangeText={setServiceType} style={{ marginTop: 10 }} />
                 <TextInput mode="outlined" label="Notes (optional)" value={notes} onChangeText={setNotes} multiline style={{ marginTop: 10 }} />
-                <Button mode="contained" onPress={book} loading={busy} disabled={busy || !pickup.trim() || !destination.trim()} style={{ marginTop: 16, backgroundColor: colors.navy900 }}>
+                <Button mode="contained" onPress={book} loading={busy} disabled={busy || !pickup.trim() || !destination.trim()} style={{ marginTop: 16, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
                   Request Booking
                 </Button>
               </>

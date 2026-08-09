@@ -44,6 +44,14 @@ export const BRAND = {
     "A kingdom-focused community platform to connect, worship, learn, communicate, and grow — with digital church streaming, live radio, voice rooms, partner academies, business promotion, and opportunities.",
 } as const;
 
+export const NAV_TABS = [
+  { key: "home", label: "Home", icon: "home" },
+  { key: "explore", label: "Explore", icon: "compass" },
+  { key: "rooms", label: "Rooms", icon: "mic" },
+  { key: "alerts", label: "Alerts", icon: "bell" },
+  { key: "profile", label: "Profile", icon: "user" },
+] as const;
+
 export interface User {
   id: string;
   email: string;

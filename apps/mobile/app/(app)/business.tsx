@@ -113,7 +113,7 @@ export default function BusinessScreen() {
                 ))}
               </View>
               <TextInput mode="outlined" placeholder="Your review…" value={comment} onChangeText={setComment} multiline style={{ marginTop: 8 }} />
-              <Button mode="contained" onPress={submitReview} style={{ marginTop: 12, backgroundColor: colors.navy900 }}>
+              <Button mode="contained" onPress={submitReview} style={{ marginTop: 12, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
                 Submit Review
               </Button>
             </View>

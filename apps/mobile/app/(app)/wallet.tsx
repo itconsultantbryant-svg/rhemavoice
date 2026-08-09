@@ -103,7 +103,7 @@ export default function WalletScreen() {
 
         {!mode && (
           <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
-            <Button mode="contained" onPress={() => setMode("topup")} style={{ flex: 1, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.navy900 }}>
+            <Button mode="contained" onPress={() => setMode("topup")} style={{ flex: 1, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
               Top Up
             </Button>
             <Button mode="outlined" onPress={() => setMode("give")} style={{ flex: 1 }}>
@@ -125,7 +125,7 @@ export default function WalletScreen() {
                   </Chip>
                 ))}
               </View>
-              <Button mode="contained" onPress={topUp} loading={busy} disabled={busy || !amount.trim()} style={{ marginTop: 16, backgroundColor: colors.navy900 }}>
+              <Button mode="contained" onPress={topUp} loading={busy} disabled={busy || !amount.trim()} style={{ marginTop: 16, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
                 Confirm Top Up
               </Button>
             </Card.Content>
@@ -138,7 +138,7 @@ export default function WalletScreen() {
               <Text variant="titleMedium" style={{ fontWeight: "700" }}>Give / Offering</Text>
               <TextInput mode="outlined" label="Amount ($)" value={amount} onChangeText={setAmount} keyboardType="numeric" style={{ marginTop: 10 }} />
               <TextInput mode="outlined" label="Description (optional)" value={description} onChangeText={setDescription} style={{ marginTop: 10 }} />
-              <Button mode="contained" onPress={give} loading={busy} disabled={busy || !amount.trim()} style={{ marginTop: 16, backgroundColor: colors.navy900 }}>
+              <Button mode="contained" onPress={give} loading={busy} disabled={busy || !amount.trim()} style={{ marginTop: 16, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
                 Send Offering
               </Button>
             </Card.Content>
@@ -155,7 +155,7 @@ export default function WalletScreen() {
                     <Text style={{ fontWeight: "600" }}>{t.description || t.tx_type}</Text>
                     <Text style={{ color: colors.inkMuted, fontSize: 11 }}>{t.reference}</Text>
                   </View>
-                  <Text style={{ fontWeight: "700", color: t.tx_type === "topup" || t.tx_type === "refund" ? "#22c55e" : colors.navy900 }}>
+                  <Text style={{ fontWeight: "700", color: t.tx_type === "topup" || t.tx_type === "refund" ? "#22c55e" : colors.ink }}>
                     {t.tx_type === "topup" || t.tx_type === "refund" ? "+" : "-"}${(t.amount_cents / 100).toFixed(2)}
                   </Text>
                 </Card.Content>

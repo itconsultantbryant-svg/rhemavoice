@@ -98,7 +98,7 @@ export default function ChurchScreen() {
                   <Button mode="outlined" onPress={leaveChurch} compact>Leave</Button>
                 </View>
               ) : (
-                <Button mode="contained" onPress={joinChurch} style={{ backgroundColor: colors.navy900 }}>Join Church</Button>
+                <Button mode="contained" onPress={joinChurch} style={{ backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>Join Church</Button>
               )}
             </View>
 

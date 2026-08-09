@@ -111,7 +111,7 @@ export default function StreamingScreen() {
               </View>
               <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
                 <TextInput mode="outlined" placeholder="Type a message…" value={chat} onChangeText={setChat} style={{ flex: 1 }} dense />
-                <Button mode="contained" onPress={sendChat} compact style={{ backgroundColor: colors.navy900, justifyContent: "center" }}>
+                <Button mode="contained" onPress={sendChat} compact style={{ backgroundColor: colors.gold500, justifyContent: "center" }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
                   Send
                 </Button>
               </View>

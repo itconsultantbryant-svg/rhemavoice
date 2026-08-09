@@ -2,7 +2,6 @@
 
 import { FadeIn } from "@rhemavoice/ui";
 import { FormEvent, useEffect, useState } from "react";
-import { RhemaLogo } from "@/components/Brand";
 import { ModuleShell } from "@/components/ModuleShell";
 import { useAuth } from "@/lib/auth";
 
@@ -59,11 +58,6 @@ export default function StreamingPage() {
       description="Live services, sermon library, chat, prayer, and giving — Sacred Voice live."
     >
       <FadeIn>
-        <div className="mb-6 flex items-center gap-3">
-          <RhemaLogo size="sm" href={undefined} />
-          <p className="text-sm text-[var(--rv-ink-muted)]">Live worship · Word · Prayer</p>
-        </div>
-
         <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
           <section className="rv-card overflow-hidden p-0">
             <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-purple-950 via-purple-800 to-purple-600 text-white">

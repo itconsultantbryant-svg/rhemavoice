@@ -90,7 +90,7 @@ export default function Settings() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 8 }}>
           <Avatar.Text size={56} label={initials || "RV"} color={colors.gold300} style={{ backgroundColor: colors.navy900 }} />
           <View style={{ flex: 1 }}>
-            <Text variant="headlineSmall" style={{ fontWeight: "700", color: colors.navy900 }}>
+            <Text variant="headlineSmall" style={{ fontWeight: "700", color: colors.ink }}>
               Settings
             </Text>
             <Text style={{ color: colors.inkMuted }}>{user.email}</Text>
@@ -134,7 +134,7 @@ export default function Settings() {
             <Button
               mode="contained"
               buttonColor={colors.gold500}
-              textColor={colors.navy900}
+              textColor={colors.purple950}
               loading={savingProfile}
               onPress={saveProfile}
               style={{ marginTop: 14 }}
@@ -166,7 +166,7 @@ export default function Settings() {
                   key={r}
                   style={{
                     borderWidth: 1,
-                    borderColor: "rgba(16,0,48,0.15)",
+                    borderColor: "rgba(248,245,252,0.08)",
                     borderRadius: 999,
                     paddingHorizontal: 10,
                     paddingVertical: 3,

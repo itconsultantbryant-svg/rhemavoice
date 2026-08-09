@@ -63,7 +63,7 @@ export default function AcademyDashboard() {
             <Image source={require("../../../assets/brand/chayil_logo.jpeg")} style={{ width: 48, height: 48, borderRadius: 12 }} />
           )}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: "700", fontSize: 20, color: colors.navy900 }}>{dash.institution.name}</Text>
+            <Text style={{ fontWeight: "700", fontSize: 20, color: colors.ink }}>{dash.institution.name}</Text>
             <Text style={{ color: colors.gold500, fontSize: 12 }}>Powered by RhemaVoice</Text>
           </View>
         </View>
@@ -80,10 +80,10 @@ export default function AcademyDashboard() {
                 borderRadius: 999,
                 backgroundColor: tab === t ? "rgba(223,166,34,0.15)" : colors.elevated,
                 borderWidth: 1,
-                borderColor: tab === t ? colors.gold500 : "rgba(16,0,48,0.08)",
+                borderColor: tab === t ? colors.gold500 : "rgba(248,245,252,0.08)",
               }}
             >
-              <Text style={{ color: tab === t ? colors.gold500 : colors.navy900, fontSize: 13 }}>{t}</Text>
+              <Text style={{ color: tab === t ? colors.gold500 : colors.inkMuted, fontSize: 13 }}>{t}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -91,7 +91,7 @@ export default function AcademyDashboard() {
         {tab === "Dashboard" && (
           <View style={{ marginTop: 16 }}>
             <Text style={{ color: colors.inkMuted }}>Welcome back,</Text>
-            <Text style={{ fontWeight: "700", fontSize: 22, color: colors.navy900 }}>{dash.student_name}</Text>
+            <Text style={{ fontWeight: "700", fontSize: 22, color: colors.ink }}>{dash.student_name}</Text>
             <Text style={{ marginTop: 8, color: colors.gold500 }}>
               {dash.membership.overall_progress}% · Week {dash.membership.current_week} of {dash.membership.program_weeks}
             </Text>
@@ -176,7 +176,7 @@ export default function AcademyDashboard() {
                 <Text style={{ color: colors.inkMuted, marginTop: 6, fontSize: 13 }}>{a.instructions}</Text>
                 <Button
                   mode="contained"
-                  style={{ marginTop: 12, backgroundColor: colors.navy900 }}
+                  style={{ marginTop: 12, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}
                   disabled={!!a.my_submission}
                   onPress={() =>
                     api.academy.submitAssignment(a.id, { file_name: "submission.pdf" }).then(() =>

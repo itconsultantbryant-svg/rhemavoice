@@ -89,7 +89,7 @@ export default function OpportunitiesScreen() {
 
               <TextInput mode="outlined" label="Cover note (optional)" value={coverNote} onChangeText={setCoverNote} multiline style={{ marginTop: 16 }} />
               <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
-                <Button mode="contained" onPress={apply} style={{ flex: 1, backgroundColor: colors.navy900 }}>Apply</Button>
+                <Button mode="contained" onPress={apply} style={{ flex: 1, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>Apply</Button>
                 <Button mode="outlined" onPress={() => toggleSave(active.id)}>{active.is_saved ? "Unsave" : "Save"}</Button>
               </View>
             </View>

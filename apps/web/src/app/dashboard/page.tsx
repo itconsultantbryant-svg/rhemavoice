@@ -1,12 +1,11 @@
 "use client";
 
-import { FadeIn, Pressable } from "@rhemavoice/ui";
+import { FadeIn } from "@rhemavoice/ui";
 import { BRAND, type DashboardPayload, type ModuleMeta } from "@rhemavoice/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
-import { RhemaLogo } from "@/components/Brand";
+import AppShell from "@/components/AppShell";
 import { ModuleIcon } from "@/components/ModuleIcon";
 import { useAuth } from "@/lib/auth";
 
@@ -62,42 +61,27 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-      <FadeIn>
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <RhemaLogo size="md" href={undefined} />
-            <div>
-              <p className="text-sm uppercase tracking-[0.22em] text-gold-500">{BRAND.name}</p>
-              <h1 className="font-display mt-1 text-2xl md:text-3xl">{dash.greeting}</h1>
-              <p className="mt-0.5 text-sm text-[var(--rv-ink-muted)]">{dash.tagline || BRAND.tagline}</p>
-            </div>
+    <AppShell>
+      <main className="mx-auto max-w-6xl px-4 py-6 md:px-6">
+        <FadeIn>
+          <div className="mb-6">
+            <p className="text-sm uppercase tracking-[0.22em] text-gold-500">{BRAND.name}</p>
+            <h1 className="font-display mt-1 text-2xl md:text-3xl">{dash.greeting}</h1>
+            <p className="mt-0.5 text-sm text-[var(--rv-ink-muted)]">{dash.tagline || BRAND.tagline}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link href="/notifications" className="rv-btn-ghost" aria-label="Notifications">
-              <Bell className="h-5 w-5" />
-            </Link>
-            <Link href="/settings" className="rv-btn-ghost">
-              Settings
-            </Link>
-            <button className="rv-btn-ghost" onClick={() => logout().then(() => router.replace("/"))}>
-              Log out
-            </button>
+
+          <div className="mb-8">
+            <input className="rv-input" placeholder="Search RhemaVoice…" />
           </div>
-        </header>
 
-        <div className="mb-8">
-          <input className="rv-input" placeholder="Search RhemaVoice…" />
-        </div>
-
-        {/* Modules first — icons + names only */}
-        <section className="mb-10">
-          <h2 className="font-display mb-1 text-2xl">Modules</h2>
-          <p className="mb-4 text-sm text-[var(--rv-ink-muted)]">Tap a service to open</p>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-            {modules.map((m, i) => (
-              <Pressable key={m.id}>
+          {/* Modules grid */}
+          <section className="mb-10">
+            <h2 className="font-display mb-1 text-2xl">Modules</h2>
+            <p className="mb-4 text-sm text-[var(--rv-ink-muted)]">Tap a service to open</p>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+              {modules.map((m, i) => (
                 <Link
+                  key={m.id}
                   href={m.route}
                   title={m.name}
                   className="rv-card group relative flex aspect-square flex-col items-center justify-center gap-2.5 p-3 text-center transition duration-rv hover:border-gold-500/50"
@@ -111,141 +95,141 @@ export default function DashboardPage() {
                     <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-gold-500" title="Profile required" />
                   )}
                 </Link>
-              </Pressable>
-            ))}
-          </div>
-        </section>
-
-        {/* Live activities below modules */}
-        <section className="mb-4">
-          <h2 className="font-display text-2xl">Live & happening now</h2>
-          <p className="mt-1 text-sm text-[var(--rv-ink-muted)]">Streams, rooms, radio, and updates</p>
-        </section>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Section title="Live Now" action={<Link href="/streaming" className="text-sm text-gold-500">Watch</Link>}>
-            {dash.live_churches.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between border-b border-[var(--rv-border)] py-2 last:border-0"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{item.title}</span>
-                    <LiveBadge />
-                  </div>
-                  <p className="text-sm text-[var(--rv-ink-muted)]">{item.church_name}</p>
-                </div>
-                <Link href="/streaming" className="rv-btn-ghost text-xs">
-                  Join Live
-                </Link>
-              </div>
-            ))}
-            {dash.live_rooms.slice(0, 2).map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between border-b border-[var(--rv-border)] py-2 last:border-0"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{item.title}</span>
-                    <LiveBadge />
-                  </div>
-                  <p className="text-sm text-[var(--rv-ink-muted)]">Room · {item.host}</p>
-                </div>
-                <span className="text-sm text-gold-500">{item.participants}</span>
-              </div>
-            ))}
-          </Section>
-
-          <Section title="Live Radio" action={<Link href="/radio" className="text-sm text-gold-500">Listen</Link>}>
-            {dash.live_radio.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between border-b border-[var(--rv-border)] py-2 last:border-0"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{item.station}</span>
-                    <LiveBadge />
-                  </div>
-                  <p className="text-sm text-[var(--rv-ink-muted)]">{item.program}</p>
-                </div>
-                <span className="text-sm text-gold-500">{item.listeners}</span>
-              </div>
-            ))}
-          </Section>
-
-          <Section title="Daily Verse">
-            <p className="italic text-[var(--rv-ink-muted)]">&ldquo;{dash.daily_verse.text}&rdquo;</p>
-            <p className="mt-2 text-sm font-semibold text-gold-500">
-              {dash.daily_verse.reference} · {dash.daily_verse.translation}
-            </p>
-          </Section>
-
-          <Section title="Academy" action={<Link href="/academy" className="text-sm text-gold-500">Enter</Link>}>
-            {dash.academy_courses.map((c) => (
-              <div key={c.id} className="mb-3 last:mb-0">
-                <div className="flex justify-between text-sm">
-                  <span>{c.title}</span>
-                  <span>{c.progress ?? 0}%</span>
-                </div>
-                <p className="text-xs text-[var(--rv-ink-muted)]">{c.academy}</p>
-                <div className="mt-1 h-2 overflow-hidden rounded-full bg-navy-900/10 dark:bg-white/10">
-                  <div className="h-full rounded-full bg-gold-500" style={{ width: `${c.progress ?? 0}%` }} />
-                </div>
-              </div>
-            ))}
-          </Section>
-
-          <Section
-            title="Opportunities"
-            action={<Link href="/opportunities" className="text-sm text-gold-500">Browse</Link>}
-          >
-            {dash.featured_opportunities.map((o) => (
-              <div
-                key={o.id}
-                className="flex items-center justify-between border-b border-[var(--rv-border)] py-2 last:border-0"
-              >
-                <div>
-                  <p className="font-medium">{o.title}</p>
-                  <p className="text-sm text-[var(--rv-ink-muted)]">{o.organization}</p>
-                </div>
-                <span className="rounded-full border border-[var(--rv-border)] px-2 py-0.5 text-xs capitalize">
-                  {o.type}
-                </span>
-              </div>
-            ))}
-          </Section>
-
-          <Section title="Events & Travel">
-            {dash.upcoming_events.slice(0, 2).map((e) => (
-              <div key={e.id} className="border-b border-[var(--rv-border)] py-2 last:border-0">
-                <p className="font-medium">{e.title}</p>
-                <p className="text-sm text-[var(--rv-ink-muted)]">{e.location}</p>
-              </div>
-            ))}
-            {dash.featured_flights.slice(0, 1).map((f) => (
-              <div key={f.id} className="border-b border-[var(--rv-border)] py-2 last:border-0">
-                <p className="font-medium">{f.route}</p>
-                <p className="text-sm text-[var(--rv-ink-muted)]">
-                  {f.agency} · {f.price_label}
-                </p>
-              </div>
-            ))}
-          </Section>
-        </div>
-
-        {dash.advertisement && (
-          <section className="rv-card mt-8 overflow-hidden bg-gradient-to-r from-navy-900 to-navy-800 p-6 text-gold-200">
-            <p className="text-sm uppercase tracking-[0.2em] text-gold-300">Featured</p>
-            <h3 className="font-display mt-2 text-2xl">{dash.advertisement.title}</h3>
-            <Link href="/ticketing" className="rv-btn mt-4 bg-gold-500 text-navy-900">
-              {dash.advertisement.cta}
-            </Link>
+              ))}
+            </div>
           </section>
-        )}
-      </FadeIn>
-    </main>
+
+          {/* Live & happening now */}
+          <section className="mb-4">
+            <h2 className="font-display text-2xl">Live & happening now</h2>
+            <p className="mt-1 text-sm text-[var(--rv-ink-muted)]">Streams, rooms, radio, and updates</p>
+          </section>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Section title="Live Now" action={<Link href="/streaming" className="text-sm text-gold-500">Watch</Link>}>
+              {dash.live_churches.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between border-b border-[var(--rv-border)] py-2 last:border-0"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{item.title}</span>
+                      <LiveBadge />
+                    </div>
+                    <p className="text-sm text-[var(--rv-ink-muted)]">{item.church_name}</p>
+                  </div>
+                  <Link href="/streaming" className="rv-btn-ghost text-xs">
+                    Join Live
+                  </Link>
+                </div>
+              ))}
+              {dash.live_rooms.slice(0, 2).map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between border-b border-[var(--rv-border)] py-2 last:border-0"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{item.title}</span>
+                      <LiveBadge />
+                    </div>
+                    <p className="text-sm text-[var(--rv-ink-muted)]">Room · {item.host}</p>
+                  </div>
+                  <span className="text-sm text-gold-500">{item.participants}</span>
+                </div>
+              ))}
+            </Section>
+
+            <Section title="Live Radio" action={<Link href="/radio" className="text-sm text-gold-500">Listen</Link>}>
+              {dash.live_radio.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between border-b border-[var(--rv-border)] py-2 last:border-0"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{item.station}</span>
+                      <LiveBadge />
+                    </div>
+                    <p className="text-sm text-[var(--rv-ink-muted)]">{item.program}</p>
+                  </div>
+                  <span className="text-sm text-gold-500">{item.listeners}</span>
+                </div>
+              ))}
+            </Section>
+
+            <Section title="Daily Verse">
+              <p className="italic text-[var(--rv-ink-muted)]">&ldquo;{dash.daily_verse.text}&rdquo;</p>
+              <p className="mt-2 text-sm font-semibold text-gold-500">
+                {dash.daily_verse.reference} · {dash.daily_verse.translation}
+              </p>
+            </Section>
+
+            <Section title="Academy" action={<Link href="/academy" className="text-sm text-gold-500">Enter</Link>}>
+              {dash.academy_courses.map((c) => (
+                <div key={c.id} className="mb-3 last:mb-0">
+                  <div className="flex justify-between text-sm">
+                    <span>{c.title}</span>
+                    <span>{c.progress ?? 0}%</span>
+                  </div>
+                  <p className="text-xs text-[var(--rv-ink-muted)]">{c.academy}</p>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/5">
+                    <div className="h-full rounded-full bg-gold-500" style={{ width: `${c.progress ?? 0}%` }} />
+                  </div>
+                </div>
+              ))}
+            </Section>
+
+            <Section
+              title="Opportunities"
+              action={<Link href="/opportunities" className="text-sm text-gold-500">Browse</Link>}
+            >
+              {dash.featured_opportunities.map((o) => (
+                <div
+                  key={o.id}
+                  className="flex items-center justify-between border-b border-[var(--rv-border)] py-2 last:border-0"
+                >
+                  <div>
+                    <p className="font-medium">{o.title}</p>
+                    <p className="text-sm text-[var(--rv-ink-muted)]">{o.organization}</p>
+                  </div>
+                  <span className="rounded-full border border-[var(--rv-border)] px-2 py-0.5 text-xs capitalize">
+                    {o.type}
+                  </span>
+                </div>
+              ))}
+            </Section>
+
+            <Section title="Events & Travel">
+              {dash.upcoming_events.slice(0, 2).map((e) => (
+                <div key={e.id} className="border-b border-[var(--rv-border)] py-2 last:border-0">
+                  <p className="font-medium">{e.title}</p>
+                  <p className="text-sm text-[var(--rv-ink-muted)]">{e.location}</p>
+                </div>
+              ))}
+              {dash.featured_flights.slice(0, 1).map((f) => (
+                <div key={f.id} className="border-b border-[var(--rv-border)] py-2 last:border-0">
+                  <p className="font-medium">{f.route}</p>
+                  <p className="text-sm text-[var(--rv-ink-muted)]">
+                    {f.agency} · {f.price_label}
+                  </p>
+                </div>
+              ))}
+            </Section>
+          </div>
+
+          {dash.advertisement && (
+            <section className="rv-card mt-8 overflow-hidden bg-gradient-to-r from-[var(--rv-purple-900)] to-[var(--rv-purple-700)] p-6 text-gold-200">
+              <p className="text-sm uppercase tracking-[0.2em] text-gold-300">Featured</p>
+              <h3 className="font-display mt-2 text-2xl">{dash.advertisement.title}</h3>
+              <Link href="/ticketing" className="rv-btn mt-4 bg-gold-500 text-purple-950">
+                {dash.advertisement.cta}
+              </Link>
+            </section>
+          )}
+        </FadeIn>
+      </main>
+    </AppShell>
   );
 }

@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
-import { useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { api } from "../lib/api";
@@ -14,10 +13,8 @@ const queryClient = new QueryClient();
 function RootNav() {
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
-  const system = useColorScheme();
-  const dark =
-    user?.theme_preference === "dark" ||
-    ((!user || user.theme_preference === "system") && system === "dark");
+  // Dark-first aesthetic: light only when the user explicitly opts in.
+  const dark = user?.theme_preference !== "light";
 
   useEffect(() => {
     (async () => {

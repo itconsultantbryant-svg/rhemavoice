@@ -13,6 +13,9 @@ module.exports = {
         display: ["Fraunces", "Georgia", "serif"],
         body: ["Source Sans 3", "system-ui", "sans-serif"],
       },
+      transitionDuration: {
+        rv: "280ms",
+      },
     },
   },
   plugins: [],

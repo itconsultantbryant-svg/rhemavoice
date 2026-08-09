@@ -57,7 +57,7 @@ export default function AcademyChoosePage() {
                   <p className="mt-1 text-sm text-white/80">{featured.tagline}</p>
                 </div>
               </div>
-              <span className="rv-btn bg-gold-500 text-navy-900">Enter Academy</span>
+              <span className="rv-btn bg-gold-500 text-purple-950">Enter Academy</span>
             </div>
             <div className="mt-6 flex flex-wrap gap-4 text-sm text-gold-200">
               <span>{featured.program_weeks || 31} Weeks</span>

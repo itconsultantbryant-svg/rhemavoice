@@ -100,7 +100,7 @@ export default function TicketingScreen() {
                         <Text style={{ color: colors.gold500 }}>${(t.price_cents / 100).toFixed(2)}</Text>
                         <Text style={{ color: colors.inkMuted, fontSize: 11 }}>{t.quantity_available} available</Text>
                       </View>
-                      <Button mode="contained" onPress={() => purchase(t.id)} loading={busy} disabled={busy || t.quantity_available <= 0} compact style={{ backgroundColor: colors.navy900 }}>
+                      <Button mode="contained" onPress={() => purchase(t.id)} loading={busy} disabled={busy || t.quantity_available <= 0} compact style={{ backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
                         Buy
                       </Button>
                     </Card.Content>

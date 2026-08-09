@@ -104,7 +104,7 @@ export default function AirScreen() {
                 <Text variant="titleMedium" style={{ marginTop: 20, fontWeight: "700" }}>Book this flight</Text>
                 <TextInput mode="outlined" label="Passenger name" value={passengerName} onChangeText={setPassengerName} style={{ marginTop: 10 }} />
                 <TextInput mode="outlined" label="Number of passengers" value={passengers} onChangeText={setPassengers} keyboardType="numeric" style={{ marginTop: 10 }} />
-                <Button mode="contained" onPress={book} loading={busy} disabled={busy || !passengerName.trim()} style={{ marginTop: 16, backgroundColor: colors.navy900 }}>
+                <Button mode="contained" onPress={book} loading={busy} disabled={busy || !passengerName.trim()} style={{ marginTop: 16, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
                   Book Flight
                 </Button>
               </>
@@ -119,7 +119,7 @@ export default function AirScreen() {
               <Card.Content>
                 <TextInput mode="outlined" label="From (city)" value={departure} onChangeText={setDeparture} style={{ marginTop: 4 }} dense />
                 <TextInput mode="outlined" label="To (city)" value={arrival} onChangeText={setArrival} style={{ marginTop: 8 }} dense />
-                <Button mode="contained" onPress={search} style={{ marginTop: 12, backgroundColor: colors.navy900 }}>
+                <Button mode="contained" onPress={search} style={{ marginTop: 12, backgroundColor: colors.gold500 }} labelStyle={{ color: colors.purple950, fontWeight: "800" }}>
                   Search Flights
                 </Button>
               </Card.Content>

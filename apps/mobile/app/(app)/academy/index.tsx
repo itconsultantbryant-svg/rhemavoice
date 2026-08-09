@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, View } from "react-native";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { Button, Text } from "react-native-paper";
-import { api } from "../../lib/api";
-import { useAppSelector } from "../../store";
-import { colors } from "../../theme";
+import { api } from "../../../lib/api";
+import { useAppSelector } from "../../../store";
+import { colors } from "../../../theme";
 
 type Academy = {
   id: string;
@@ -39,7 +39,7 @@ export default function AcademyChoose() {
         <Text style={{ color: colors.gold500, letterSpacing: 2, textTransform: "uppercase", fontSize: 11, marginTop: 8 }}>
           Rhema Academy
         </Text>
-        <Text variant="headlineMedium" style={{ fontWeight: "700", color: colors.navy900, marginTop: 4 }}>
+        <Text variant="headlineMedium" style={{ fontWeight: "700", color: colors.ink, marginTop: 4 }}>
           Choose your academy
         </Text>
         <Text style={{ color: colors.inkMuted, marginTop: 8 }}>
@@ -58,7 +58,7 @@ export default function AcademyChoose() {
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <Image
-                source={require("../../assets/brand/chayil_logo.jpeg")}
+                source={require("../../../assets/brand/chayil_logo.jpeg")}
                 style={{ width: 56, height: 56, borderRadius: 14 }}
               />
               <View style={{ flex: 1 }}>
@@ -87,10 +87,10 @@ export default function AcademyChoose() {
               borderRadius: 14,
               padding: 16,
               borderWidth: 1,
-              borderColor: "rgba(16,0,48,0.08)",
+              borderColor: "rgba(248,245,252,0.08)",
             }}
           >
-            <Text style={{ fontWeight: "700", color: colors.navy900 }}>{a.name}</Text>
+            <Text style={{ fontWeight: "700", color: colors.ink }}>{a.name}</Text>
             <Text style={{ color: colors.inkMuted, marginTop: 4, fontSize: 13 }}>{a.tagline}</Text>
           </Pressable>
         ))}
