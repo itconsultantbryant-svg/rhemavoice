@@ -22,3 +22,7 @@ staticfiles/
 .idea/
 .vscode/
 *.pem
+.neon
+backend/neon-dump.json
+.env.vercel.local
+.vercel

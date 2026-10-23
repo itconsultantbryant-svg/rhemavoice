@@ -1,0 +1,22 @@
+{
+  "name": "@rhemavoice/neon-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./index.ts",
+  "scripts": {
+    "dev": "neon dev",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@neon/functions": "^0.9.0",
+    "hono": "^4.6.14",
+    "jose": "^5.9.6",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.7.2"
+  }
+}
