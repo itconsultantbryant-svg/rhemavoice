@@ -25,7 +25,7 @@ json() {
 }
 
 step() {
-  printf '%-32s' "$1"
+  printf '%-40s' "$1"
 }
 
 fail() {
@@ -69,6 +69,13 @@ step "GET /api/v1/dashboard/"
 DASH=$(curl -fsS -m 60 "$BASE/api/v1/dashboard/" -H "Authorization: Bearer $TOKEN")
 printf '%s' "$DASH" | json 'd["greeting"]' >/dev/null || fail
 echo "ok"
+
+for ENDPOINT in music/tracks marketplace/products store/products jobs/postings; do
+  step "GET /api/v1/$ENDPOINT/"
+  LIST=$(curl -fsS -m 60 "$BASE/api/v1/$ENDPOINT/" -H "Authorization: Bearer $TOKEN")
+  N=$(printf '%s' "$LIST" | json 'len(d)')
+  echo "ok ($N)"
+done
 
 echo
 echo "Smoke test passed against $BASE"
