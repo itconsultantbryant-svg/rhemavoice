@@ -31,6 +31,13 @@ const GROUPS: Group[] = [
   { title: "Marketplace & Travel", subtitle: "Do business, travel, and celebrate", ids: MARKETPLACE },
 ];
 
+const EXTRAS = [
+  { route: "music", title: "Music", subtitle: "Albums, playlists, favorites", icon: "music" },
+  { route: "marketplace", title: "Marketplace", subtitle: "Shop kingdom products", icon: "shopping-outline" },
+  { route: "store", title: "Store", subtitle: "Books, media, and resources", icon: "storefront-outline" },
+  { route: "jobs", title: "Jobs", subtitle: "Find your next role", icon: "briefcase-outline" },
+] as const;
+
 export default function ExploreScreen() {
   const user = useAppSelector((s) => s.auth.user);
   const [modules, setModules] = useState<ModuleMeta[]>([]);
@@ -131,6 +138,51 @@ export default function ExploreScreen() {
             </View>
           </View>
         ))}
+
+        <View style={{ marginTop: 32 }}>
+          <Text variant="titleLarge" style={{ fontWeight: "800", color: colors.ink }}>
+            More Services
+          </Text>
+          <Text style={{ color: colors.inkMuted, fontSize: 12, marginTop: 2 }}>
+            Music, commerce, and careers
+          </Text>
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
+            {EXTRAS.map((extra, i) => (
+              <Animated.View
+                key={extra.route}
+                entering={FadeInDown.delay(120 + i * 30).duration(280)}
+                style={{ width: "48%" }}
+              >
+                <Pressable
+                  onPress={() => router.push(`/(app)/${extra.route}` as Href)}
+                  style={({ pressed }) => ({
+                    transform: [{ scale: pressed ? 0.96 : 1 }],
+                    backgroundColor: colors.elevated,
+                    borderRadius: 16,
+                    padding: 16,
+                    borderWidth: 1,
+                    borderColor: "rgba(248,245,252,0.08)",
+                    minHeight: 118,
+                  })}
+                >
+                  <Avatar.Icon
+                    size={40}
+                    icon={extra.icon}
+                    color={colors.gold500}
+                    style={{ backgroundColor: "rgba(197,160,72,0.12)" }}
+                  />
+                  <Text style={{ fontWeight: "800", color: colors.ink, fontSize: 14, marginTop: 10 }}>
+                    {extra.title}
+                  </Text>
+                  <Text style={{ color: colors.inkMuted, fontSize: 11, marginTop: 4 }} numberOfLines={2}>
+                    {extra.subtitle}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            ))}
+          </View>
+        </View>
       </Animated.View>
     </ScrollView>
   );
