@@ -56,9 +56,13 @@ cd "$ROOT/backend"
 
 echo "==> dumping the SQLite source data"
 cd "$ROOT/backend"
+# `migrate` already creates content types and auth permissions in the target
+# database, so they must be excluded here or loaddata fails on duplicate keys.
 env -u DATABASE_URL "$PY" manage.py dumpdata \
   --natural-foreign --natural-primary \
   --exclude admin.logentry \
+  --exclude auth.permission \
+  --exclude contenttypes \
   --exclude sessions \
   --exclude token_blacklist \
   > "$DUMP"
