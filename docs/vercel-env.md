@@ -26,6 +26,8 @@ Tighten CORS on the Neon function (currently `*`) by redeploying with the real
 origins:
 
 ```bash
+set -a; source .env.local; set +a
+
 neon functions deploy rhemavoiceapi \
   --project-id soft-grass-56497276 --branch main \
   --src apps/neon-api --runtime nodejs24 \
