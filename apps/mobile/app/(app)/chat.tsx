@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { Avatar, Button, Card, Text, TextInput } from "react-native-paper";
-import { api, tokenStore } from "../../lib/api";
+import { wsUrl } from "@rhemavoice/api-client";
+import { API_URL, api, tokenStore } from "../../lib/api";
 import { useAppSelector } from "../../store";
 import { colors } from "../../theme";
 import { LoadingScreen } from "../../components/LoadingScreen";
@@ -61,12 +62,13 @@ export default function ChatScreen() {
     const token = await tokenStore.getAccessToken();
     if (token) {
       try {
-        const wsBase = "ws://localhost:8000";
-        const ws = new WebSocket(`${wsBase}/ws/chat/${conv.id}/?token=${token}`);
+        const ws = new WebSocket(wsUrl(API_URL, `/ws/chat/${conv.id}/`, token));
         ws.onmessage = (evt) => {
           const data = JSON.parse(evt.data);
-          if (data.type === "chat_message") {
-            setMessages((prev) => [...prev, data.message]);
+          if (data.type === "message" && data.payload) {
+            setMessages((prev) =>
+              prev.some((m) => m.id === data.payload.id) ? prev : [...prev, data.payload],
+            );
           }
         };
         wsRef.current = ws;

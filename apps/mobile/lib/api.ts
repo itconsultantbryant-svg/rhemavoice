@@ -3,7 +3,7 @@ import { createApiClient } from "@rhemavoice/api-client";
 import type { AuthTokens } from "@rhemavoice/shared";
 import Constants from "expo-constants";
 
-const API_URL =
+export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
   "http://localhost:8000/api/v1";

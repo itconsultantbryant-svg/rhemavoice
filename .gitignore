@@ -26,3 +26,4 @@ staticfiles/
 backend/neon-dump.json
 .env.vercel.local
 .vercel
+pnpm-lock.yaml

@@ -3,9 +3,9 @@
 RhemaVoice is a **kingdom-focused community platform** by **RhemaVoice Technologies Inc.**  
 Tagline: **Our Voice Is Light**
 
-Built as a **modular monolith**: one Django API, independent apps per domain, shared auth/RBAC. Clients: React Native (Expo) mobile + Next.js web/admin.
+Built as a **modular monolith**: one API, independent route modules per domain, shared auth/RBAC. Clients: React Native (Expo) mobile + Next.js web/admin.
 
-> Note: The product roadmap specifies Supabase; the current implementation uses Django + PostgreSQL/SQLite with Channels for realtime. Multi-tenant partner isolation is enforced via RBAC and organization-scoped data.
+The live API is **Hono on Neon Functions** (`apps/neon-api`) against Neon PostgreSQL. It reuses Django's exact table/column names and DRF JSON shapes. The legacy Django API (`backend/`) remains the source of truth for migrations and demo seeding; it is no longer the deployment target. Multi-tenant partner isolation is enforced via RBAC and organization-scoped data.
 
 ## Core platform modules
 
@@ -26,7 +26,7 @@ Supporting systems: auth/profiles, notifications, payments/wallet, chat, follow,
 
 ## Request path
 
-Clients (Expo / Next.js) → JWT + OTP → Module registry + profile gates → Feature APIs
+Clients (Expo / Next.js) → Neon Function (Hono) → JWT + OTP → Module registry + profile gates → Feature APIs → Neon PostgreSQL
 
 ## Module profile gate
 
@@ -46,13 +46,19 @@ Super Admin unlocks `/api/v1/admin/*` and the Admin Next.js app — users, partn
 
 ## Realtime
 
-JWT-authenticated WebSockets via Channels (`JwtAuthMiddleware`):
+JWT-authenticated WebSockets served by the Neon Function:
 
-- `/ws/chat/<conversation_id>/`
-- `/ws/notifications/`
+- `/ws/chat/<conversation_id>/?token=<jwt>`
+- `/ws/notifications/?token=<jwt>`
 
-Run the API with an ASGI server (`uvicorn config.asgi:application`).
+Function instances are isolated, so cross-instance fan-out polls Postgres for
+new `chat_message` / `notifications_notification` rows. The legacy Django
+Channels implementation lives in `backend/apps/realtime/`.
 
 ## Payments
 
-Provider adapters (Stripe / Paystack / Flutterwave / Mobile Money) in `apps/payments/gateway.py`. Sandbox by default; live mode + webhooks for production. Used for courses, tickets, transport, air bookings, donations, and subscriptions.
+Provider adapters (Stripe / Paystack / Flutterwave / Mobile Money) in
+`apps/neon-api/src/routes/payments.ts` (and the legacy
+`backend/apps/payments/gateway.py`). Sandbox by default; live mode + webhooks
+for production. Used for courses, tickets, transport, air bookings, donations,
+and subscriptions.

@@ -1,129 +1,110 @@
-# Deployment — Render (API) + Vercel (Web / Admin)
+# Deployment — Neon Functions (API) + Vercel (Web / Admin)
 
 ## Overview
 
 | Service | Platform | Root |
 |---------|----------|------|
-| Django API + WebSockets | [Render](https://render.com) | `backend/` |
-| Member web app | [Vercel](https://vercel.com) | `apps/web/` |
+| API + WebSockets | [Neon Functions](https://neon.com) | `apps/neon-api/` |
+| PostgreSQL | Neon | project `soft-grass-56497276` |
+| Member web app | Vercel | `apps/web/` |
 | Admin web app | Vercel | `apps/admin/` |
+| Mobile (Expo) | Expo | `apps/mobile/` |
 
-Mobile (Expo) is separate — point `EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_WS_URL` at the Render API after deploy.
-
----
-
-## 1. Backend on Render
-
-### Option A — Blueprint (recommended)
-
-1. Push this repo to GitHub/GitLab.
-2. Render Dashboard → **New** → **Blueprint**.
-3. Select the repo; Render reads [`render.yaml`](../render.yaml).
-4. Confirm the Postgres DB + `rhemavoice-api` web service.
-5. After first deploy, open the service URL and check `https://<service>.onrender.com/health/` → `{"status":"ok"}`.
-
-### Option B — Manual web service
-
-1. **New** → **Web Service** → connect repo.
-2. Settings:
-   - **Root Directory:** `backend`
-   - **Runtime:** Python 3
-   - **Build Command:** `bash build.sh`
-   - **Start Command:** `bash start.sh`
-   - **Health Check Path:** `/health/`
-3. Add a **PostgreSQL** database and link `DATABASE_URL`.
-
-### Required environment variables
-
-| Key | Value |
-|-----|--------|
-| `DEBUG` | `0` |
-| `SECRET_KEY` | Long random string (Render can generate) |
-| `DATABASE_URL` | From Render Postgres |
-| `DATABASE_SSL_REQUIRE` | `1` |
-| `ALLOWED_HOSTS` | `.onrender.com` (and custom domain if any) |
-| `CORS_ALLOWED_ORIGINS` | Your Vercel URLs, comma-separated, `https://…` |
-| `CSRF_TRUSTED_ORIGINS` | API URL + Vercel URLs, `https://…` |
-| `OTP_DEBUG` | `0` in production |
-| `SEED_DEMO` | `1` once to seed demo users, then set to `0` |
-| `PAYMENTS_MODE` | `sandbox` until live keys are ready |
-| `USE_REDIS_CHANNELS` | `0` unless you add Redis |
-
-### Demo accounts (after `SEED_DEMO=1`)
-
-- Admin: `admin@rhemavoice.app` / `Admin123!`
-- Demo: `demo@rhemavoice.app` / `Demo123!`
-- OTP (only if `OTP_DEBUG=1`): `123456`
-
-### Notes
-
-- Free Render web services **spin down** when idle; first request may take ~30–60s.
-- WebSockets work with `uvicorn` (ASGI). Free plans can be limited for long-lived WS connections.
-- After Vercel URLs exist, update `CORS_ALLOWED_ORIGINS` and `CSRF_TRUSTED_ORIGINS`, then redeploy.
+The legacy Django API (`backend/`) is no longer deployed. It is kept as the
+migration/seed source of truth.
 
 ---
 
-## 2. Frontend on Vercel
+## 1. Database
 
-Create **two** Vercel projects from the same monorepo.
-
-### Member app (`apps/web`)
-
-1. Vercel → **Add New** → **Project** → import repo.
-2. **Root Directory:** `apps/web` (Edit → select folder).
-3. Framework: Next.js (auto).
-4. Install / Build are already in [`apps/web/vercel.json`](../apps/web/vercel.json) (`npm install` from monorepo root).
-5. Environment variables (Production + Preview):
-
-```
-NEXT_PUBLIC_API_URL=https://YOUR-RENDER-SERVICE.onrender.com/api/v1
-NEXT_PUBLIC_WS_URL=wss://YOUR-RENDER-SERVICE.onrender.com
-```
-
-6. Deploy.
-
-### Admin app (`apps/admin`)
-
-Same steps with **Root Directory:** `apps/admin` and the same `NEXT_PUBLIC_*` vars.
-
-[`apps/admin/vercel.json`](../apps/admin/vercel.json) builds `@rhemavoice/admin`.
-
-### After both Vercel apps are live
-
-Update Render env:
-
-```
-CORS_ALLOWED_ORIGINS=https://your-web.vercel.app,https://your-admin.vercel.app
-CSRF_TRUSTED_ORIGINS=https://YOUR-RENDER-SERVICE.onrender.com,https://your-web.vercel.app,https://your-admin.vercel.app
-```
-
-Redeploy the API.
-
----
-
-## 3. Checklist
-
-- [ ] Render health: `GET /health/` returns ok
-- [ ] `POST /api/v1/auth/login/` works from browser (CORS)
-- [ ] Web app login → OTP → dashboard
-- [ ] Admin app login with super admin
-- [ ] `SEED_DEMO` turned off after first seed
-- [ ] `OTP_DEBUG=0` and real OTP/email path planned for production
-- [ ] Custom domains (optional) added on Render + Vercel and reflected in CORS/CSRF
-
----
-
-## 4. Local production-like smoke test
+Neon already hosts the schema (Django migrations) and demo data. To rebuild it
+from `backend/db.sqlite3`:
 
 ```bash
-# API
-cd backend
-source .venv/bin/activate
-pip install -r requirements.txt
-DEBUG=0 SECRET_KEY=test SECRET_SSL_REDIRECT=0 SECURE_SSL_REDIRECT=0 \
-  ALLOWED_HOSTS=localhost CORS_ALLOWED_ORIGINS=http://localhost:3000 \
-  bash -c 'python manage.py collectstatic --no-input && uvicorn config.asgi:application --port 8000'
-
-# Web (separate terminal, from repo root)
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 npm run build:web
+cp .env.example .env.local
+# set DATABASE_URL (pooled) and DATABASE_URL_UNPOOLED (direct)
+./scripts/migrate-to-neon.sh
 ```
+
+The script drops `public`, runs Django migrations, dumps SQLite (excluding
+`contenttypes` / `auth.permission`, which migrate already creates), loads the
+data, and runs `seed_demo`. Neon round-trips are slow, so this takes several
+minutes.
+
+Get the connection strings:
+
+```bash
+neon connection-string main --project-id soft-grass-56497276 \
+  --role-name rhemavoice_owner --database-name rhemavoice --pooled
+
+neon connection-string main --project-id soft-grass-56497276 \
+  --role-name rhemavoice_owner --database-name rhemavoice
+```
+
+Keep the unpooled URL for migrations; use the pooled URL for app traffic.
+
+## 2. Deploy the API
+
+```bash
+JWT_SECRET=$(openssl rand -hex 32)
+
+neon functions deploy rhemavoiceapi \
+  --project-id soft-grass-56497276 --branch main \
+  --src apps/neon-api --runtime nodejs24 \
+  --env JWT_SECRET="$JWT_SECRET" \
+  --env CORS_ALLOWED_ORIGINS="https://your-web.vercel.app,https://your-admin.vercel.app" \
+  --env OTP_DEBUG=1 --env OTP_CODE=123456 --env PAYMENTS_MODE=sandbox \
+  --wait
+```
+
+- Neon injects `DATABASE_URL` / `DATABASE_URL_UNPOOLED` at runtime.
+- Keep `JWT_SECRET` stable; rotating it invalidates all sessions.
+- `OTP_DEBUG=1` is required until a real OTP delivery channel exists.
+
+## 3. Vercel
+
+Create two projects from the same repo. Root directories:
+
+- `apps/web`
+- `apps/admin`
+
+Set the same variables on **both**, for Production and Preview:
+
+| Key | Value |
+|-----|-------|
+| `NEXT_PUBLIC_API_URL` | `https://<function>.compute.<region>.aws.neon.tech/api/v1` |
+| `NEXT_PUBLIC_WS_URL` | `wss://<function>.compute.<region>.aws.neon.tech` |
+
+The current deployed values are listed in [`docs/vercel-env.md`](vercel-env.md).
+No server-side secrets belong on Vercel.
+
+## 4. Tighten CORS
+
+The initial deploy uses `CORS_ALLOWED_ORIGINS=*`. After the Vercel URLs exist,
+redeploy the function with the real list (see `docs/vercel-env.md`).
+
+## 5. Verify
+
+```bash
+./scripts/smoke-api.sh https://<function>.compute.<region>.aws.neon.tech
+```
+
+The smoke script checks health, login, OTP verification, modules, and dashboard.
+It exits early if `OTP_DEBUG` is off.
+
+## 6. Legacy Django on Render (optional)
+
+`render.yaml` + `backend/` are retained for reference. If you still need the
+Django API, deploy `backend/` to Render with `DATABASE_URL`, `SECRET_KEY`,
+`DATABASE_SSL_REQUIRE=1`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, and
+`CSRF_TRUSTED_ORIGINS`. Live chat requires uvicorn/ASGI.
+
+## Checklist
+
+- [ ] `neon functions list` shows `rhemavoiceapi` as deployed
+- [ ] `/health/` returns `{"status":"ok"}`
+- [ ] Demo login → OTP → dashboard works through the function URL
+- [ ] Vercel web + admin have both `NEXT_PUBLIC_*` vars and were rebuilt
+- [ ] CORS updated from `*` to the Vercel origins
+- [ ] `JWT_SECRET` stored somewhere safe for future deploys
+- [ ] Real OTP delivery planned (`OTP_DEBUG=0` is not production-ready yet)

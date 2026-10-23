@@ -124,3 +124,22 @@ npx tsc --noEmit -p apps/neon-api/tsconfig.json
 
 Your file must compile without errors. Do not edit files outside your assigned
 route file(s) — the orchestrator wires them into `src/routes/index.ts`.
+
+## Running & deploying
+
+```bash
+npm run dev --workspace=@rhemavoice/neon-api   # local function dev server
+
+neon functions deploy rhemavoiceapi \
+  --project-id soft-grass-56497276 --branch main \
+  --src apps/neon-api --runtime nodejs24 \
+  --env JWT_SECRET="<long-random>" \
+  --env CORS_ALLOWED_ORIGINS="<vercel-origins>" \
+  --env OTP_DEBUG=1 --env OTP_CODE=123456 --env PAYMENTS_MODE=sandbox \
+  --wait
+
+./scripts/smoke-api.sh <function-url>
+```
+
+Neon injects `DATABASE_URL` and `DATABASE_URL_UNPOOLED`. Database rebuilds go
+through `scripts/migrate-to-neon.sh` (legacy Django migrations + SQLite dump).

@@ -2,7 +2,7 @@
 
 **Our Voice Is Light** — kingdom-focused community platform by **RhemaVoice Technologies Inc.**
 
-Modular monolith: Expo mobile, Next.js web/admin, Django API.
+Modular monolith: Expo mobile, Next.js web/admin, Hono API on **Neon Functions** (PostgreSQL). The legacy Django API remains in `backend/` as the migration/seed source of truth.
 
 ## Core modules
 
@@ -19,27 +19,68 @@ Modular monolith: Expo mobile, Next.js web/admin, Django API.
 
 ## Stack
 
+- **API:** Hono + Neon Functions + PostgreSQL (`apps/neon-api`)
+- **Legacy API:** Django + DRF + Channels (`backend/`, migrations/seed only)
 - **Mobile:** Expo + React Native + TypeScript + Redux Toolkit + React Query + Paper + Reanimated
 - **Web / Admin:** Next.js + Tailwind + Framer Motion + React Query
-- **Backend:** Django + DRF + SimpleJWT + Channels + Celery + Redis + PostgreSQL
-- **Brand:** Sacred Navy (deep navy + soft gold)
+- **Brand:** dark purple + soft gold
 
 ## Requirements
 
-- Node.js 20+
-- Python 3.9+ (3.12 recommended for Docker)
-- Docker (optional, for Postgres/Redis stack)
+- Node.js 20.19+
+- Python 3.9+ (only for the legacy Django migrations/seed)
+- Neon CLI (`neon`) and `psql` for database work
 
-### 1. API (Docker)
+## API (Neon Functions)
+
+`apps/neon-api` is the live API. It uses Neon's pooled Postgres connection,
+Django-compatible password hashing/JWT, and the same JSON shapes as DRF so the
+deployed frontends keep working unchanged.
+
+### Rebuild the database from SQLite
 
 ```bash
-cp .env.example .env
-docker compose up --build
+cp .env.example .env.local   # set DATABASE_URL and DATABASE_URL_UNPOOLED
+./scripts/migrate-to-neon.sh
 ```
 
-API: http://localhost:8000/api/v1/
+The script drops and recreates the `public` schema, applies Django migrations,
+loads the SQLite data, and seeds demo content. Neon latency makes this take a
+few minutes.
 
-### 2. API (local SQLite)
+### Deploy
+
+```bash
+JWT_SECRET=$(openssl rand -hex 32)
+
+neon functions deploy rhemavoiceapi \
+  --project-id <project-id> --branch main \
+  --src apps/neon-api --runtime nodejs24 \
+  --env JWT_SECRET="$JWT_SECRET" \
+  --env CORS_ALLOWED_ORIGINS="https://your-web.vercel.app,https://your-admin.vercel.app" \
+  --env OTP_DEBUG=1 --env OTP_CODE=123456 --env PAYMENTS_MODE=sandbox \
+  --wait
+```
+
+Neon injects `DATABASE_URL` and `DATABASE_URL_UNPOOLED` into the function at
+runtime; do not put them in Vercel.
+
+### Smoke test
+
+```bash
+./scripts/smoke-api.sh https://<function>.compute.<region>.aws.neon.tech
+```
+
+### Local functions dev
+
+```bash
+npm run dev --workspace=@rhemavoice/neon-api
+```
+
+See [`docs/vercel-env.md`](docs/vercel-env.md) for the exact Vercel variables and
+[`docs/deployment.md`](docs/deployment.md) for the full runbook.
+
+## Legacy Django API (local SQLite)
 
 ```bash
 cd backend
@@ -48,13 +89,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py seed_demo
-# ASGI (HTTP + WebSockets for chat/notifications)
 uvicorn config.asgi:application --host 127.0.0.1 --port 8000
 ```
 
-> For HTTP-only development you can still use `python manage.py runserver`, but live chat needs uvicorn (or another ASGI server).
-
-### 3. Frontends
+## Frontends
 
 ```bash
 npm install
@@ -70,7 +108,7 @@ npm run mobile   # Expo
 | Super Admin | admin@rhemavoice.app | Admin123! |
 | Member | demo@rhemavoice.app | Demo123! |
 
-**Dev OTP:** `123456`
+**Dev OTP:** `123456` (only when `OTP_DEBUG=1`; real OTP delivery is not wired yet)
 
 ## Login flow
 
@@ -79,30 +117,27 @@ Splash → Welcome → Login → OTP → Dashboard → Module → Profile gate (
 ## Monorepo
 
 ```
-apps/mobile   Expo app
-apps/web      Member portal
-apps/admin    Admin + Super Admin
-packages/     shared, ui, api-client
-backend/      Django modular monolith
-docs/         Architecture notes
+apps/mobile     Expo app
+apps/web        Member portal
+apps/admin      Admin + Super Admin
+apps/neon-api   Hono API on Neon Functions
+packages/       shared, ui, api-client
+backend/        Legacy Django API (migrations + seed source of truth)
+docs/           Architecture, deployment, Vercel env
+scripts/        Neon migration + API smoke test
 ```
 
 ## Realtime & payments
 
-- **WebSockets:** `ws://localhost:8000/ws/chat/<conversation_id>/?token=<jwt>` and `/ws/notifications/?token=<jwt>`
-- **Payments:** Sandbox by default (`PAYMENTS_MODE=sandbox`). Initiate → confirm (or webhook) → wallet credit for `wallet_topup` purposes. Set provider secrets + `PAYMENTS_MODE=live` for production checkout URLs.
-
-## Deployment
-
-- **API:** Render (`backend/` + [`render.yaml`](render.yaml))
-- **Web / Admin:** Vercel (`apps/web`, `apps/admin`)
-
-See **[docs/deployment.md](docs/deployment.md)** for step-by-step setup, env vars, and CORS wiring.
+- **WebSockets:** `wss://<function>/ws/chat/<conversation_id>/?token=<jwt>` and `/ws/notifications/?token=<jwt>`. Cross-instance fan-out uses Postgres polling.
+- **Payments:** Sandbox by default (`PAYMENTS_MODE=sandbox`). Initiate → confirm (or webhook) → wallet credit for `wallet_topup`. Set provider secrets + `PAYMENTS_MODE=live` for production checkout URLs.
 
 ## Tests
 
 ```bash
-cd backend && pytest
+cd backend && pytest                                     # legacy API
+npx tsc --noEmit -p apps/neon-api/tsconfig.json          # Neon API typecheck
+./scripts/smoke-api.sh <api-base-url>                    # deployed API smoke
 ```
 
-See [docs/architecture.md](docs/architecture.md) for module map, RBAC, and multi-tenant rules.
+See [docs/architecture.md](docs/architecture.md) for the module map, RBAC, and multi-tenant rules.
