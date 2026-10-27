@@ -29,5 +29,17 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm install
-      - run: npm run build --workspace=@rhemavoice/web
-      - run: npm run build --workspace=@rhemavoice/admin
+       - run: npm run build --workspace=@rhemavoice/web
+       - run: npm run build --workspace=@rhemavoice/admin
+
+  clients-and-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm install
+      - run: npx tsc --noEmit -p apps/neon-api/tsconfig.json
+      - run: npm run lint --workspace=@rhemavoice/mobile

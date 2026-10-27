@@ -200,8 +200,8 @@ export default function AcademyTenantPage() {
                     <h3 className="font-display mt-2 text-xl">{c.title}</h3>
                     <p className="text-sm text-[var(--rv-ink-muted)]">{c.instructor_name}</p>
                   </div>
-                  <button className="rv-btn-primary" onClick={() => setTab("live")}>
-                    Join Live Class
+                    <button className="rv-btn-primary" onClick={() => setTab("live")}>
+                     View class details
                   </button>
                 </div>
               </section>
@@ -293,15 +293,12 @@ export default function AcademyTenantPage() {
                     )}
                     <p className="font-display mt-3 text-2xl">{c.title}</p>
                     <p className="text-sm opacity-80">{c.instructor_name}</p>
-                    <p className="mt-2 text-xs">{c.viewer_count} watching</p>
+                    <p className="mt-2 text-xs">Live delivery requires a configured provider</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 border-t border-[var(--rv-border)] p-4 text-sm">
-                  <span className="rounded-full border border-[var(--rv-border)] px-3 py-1">Chat</span>
-                  <span className="rounded-full border border-[var(--rv-border)] px-3 py-1">Participants</span>
-                  <span className="rounded-full border border-[var(--rv-border)] px-3 py-1">Polls</span>
-                  <button className="rv-btn-ghost ml-auto text-xs">Raise Hand</button>
-                  <button className="rv-btn-ghost text-xs text-[var(--rv-danger)]">Leave</button>
+                  <span className="rounded-full border border-[var(--rv-border)] px-3 py-1">Class details</span>
+                  <span className="rounded-full border border-[var(--rv-border)] px-3 py-1">Scheduled session</span>
                 </div>
               </section>
             ))}
@@ -346,10 +343,7 @@ export default function AcademyTenantPage() {
                 <p className="mt-3 text-2xl font-medium">{dash.mentor.name}</p>
                 <p className="text-sm text-gold-500">★ {dash.mentor.rating}</p>
                 <p className="mt-2 text-sm text-[var(--rv-ink-muted)]">{dash.mentor.notes}</p>
-                <div className="mt-4 space-y-2 text-sm">
-                  <button className="rv-btn-primary w-full sm:w-auto">Message Mentor</button>
-                  <p className="text-[var(--rv-ink-muted)]">Book session · View notes · Group chat</p>
-                </div>
+                  <p className="mt-4 text-sm text-[var(--rv-ink-muted)]">Direct mentoring messages and booking are not configured.</p>
               </>
             ) : (
               <p className="mt-3 text-sm text-[var(--rv-ink-muted)]">No mentor assigned yet.</p>
@@ -362,7 +356,7 @@ export default function AcademyTenantPage() {
             <section className="rv-card p-5">
               <h3 className="font-display text-xl">My Progress</h3>
               <div className="mt-4 flex h-28 w-28 flex-col items-center justify-center rounded-full border-4 border-gold-500">
-                <span className="font-display text-3xl">{Math.max(mem.overall_progress, 89)}%</span>
+                <span className="font-display text-3xl">{mem.overall_progress}%</span>
                 <span className="text-[10px]">Overall</span>
               </div>
               <dl className="mt-6 space-y-3 text-sm">
@@ -378,11 +372,11 @@ export default function AcademyTenantPage() {
                 </div>
                 <div className="flex justify-between">
                   <dt>Assessments</dt>
-                  <dd>On track</dd>
+                  <dd>Not recorded</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt>Participation</dt>
-                  <dd>Strong</dd>
+                  <dd>Not recorded</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt>Mentor rating</dt>
@@ -395,7 +389,7 @@ export default function AcademyTenantPage() {
               <p className="mt-2 text-sm text-[var(--rv-ink-muted)]">
                 {dash.certificates.length
                   ? dash.certificates.map((c) => `${c.course_title} (${c.status})`).join(", ")
-                  : "On track for graduation — keep attending and submitting assignments."}
+                  : "No certificate has been issued."}
               </p>
             </section>
           </div>
@@ -448,7 +442,7 @@ export default function AcademyTenantPage() {
                       {r.resource_type} · {r.description}
                     </p>
                   </div>
-                  <span className="text-sm text-gold-500">Download</span>
+                  <span className="text-sm text-[var(--rv-ink-muted)]">Access pending</span>
                 </div>
               ))}
             </div>

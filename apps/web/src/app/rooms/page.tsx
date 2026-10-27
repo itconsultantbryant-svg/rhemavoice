@@ -15,6 +15,7 @@ type Room = {
   participant_count: number;
   host_name: string;
   recording_enabled: boolean;
+  voice_enabled: boolean;
   my_participation?: { role: string; is_muted: boolean; hand_raised: boolean } | null;
   active_poll?: { question: string; options: string[] } | null;
   participants_preview?: Array<{ display_name: string; role: string; hand_raised: boolean }>;
@@ -105,13 +106,14 @@ export default function RoomsPage() {
                 <button className="rv-btn bg-gold-500 text-purple-950" onClick={join}>
                   {active?.my_participation ? "Joined" : "Join room"}
                 </button>
-                <button className="rv-btn border border-white/30 bg-white/10" onClick={raiseHand}>
+                {active?.voice_enabled && <button className="rv-btn border border-white/30 bg-white/10" onClick={raiseHand}>
                   {active?.my_participation?.hand_raised ? "Lower hand" : "Raise hand"}
-                </button>
-                <button className="rv-btn border border-white/30 bg-white/10" onClick={toggleMute}>
+                </button>}
+                {active?.voice_enabled && <button className="rv-btn border border-white/30 bg-white/10" onClick={toggleMute}>
                   {active?.my_participation?.is_muted === false ? "Mute" : "Unmute"}
-                </button>
+                </button>}
               </div>
+              {!active?.voice_enabled && <p className="mt-3 text-sm text-white/70">Voice is not configured for this room.</p>}
             </div>
             <div className="grid gap-4 p-5 md:grid-cols-2">
               <div>

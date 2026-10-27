@@ -85,9 +85,9 @@ export default function TransportScreen() {
               <Card style={{ marginTop: 20, backgroundColor: "rgba(34,197,94,0.1)" }}>
                 <Card.Content style={{ alignItems: "center", paddingVertical: 20 }}>
                   <Avatar.Icon size={48} icon="check-circle" color="#22c55e" style={{ backgroundColor: "transparent" }} />
-                  <Text variant="titleMedium" style={{ marginTop: 8, fontWeight: "700" }}>Booking Submitted</Text>
+                  <Text variant="titleMedium" style={{ marginTop: 8, fontWeight: "700" }}>Request submitted</Text>
                   <Text style={{ color: colors.inkMuted, marginTop: 4, textAlign: "center" }}>
-                    The provider will contact you to confirm.
+                    Awaiting provider review. No driver, fare, or tracking is confirmed yet.
                   </Text>
                   <Button mode="outlined" onPress={() => { setSelected(null); setBooked(false); }} style={{ marginTop: 12 }}>
                     Browse more

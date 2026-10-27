@@ -19,6 +19,7 @@ type StreamItem = {
   series: string;
   viewers: number;
   is_featured: boolean;
+  playback_url: string;
   chat_preview?: Array<{ id: string; display_name: string; message: string }>;
 };
 
@@ -91,6 +92,7 @@ export default function StreamingScreen() {
                 {active.status === "live" && (
                   <Text style={{ color: colors.gold500, marginTop: 8 }}>{active.viewers} watching</Text>
                 )}
+                {!active.playback_url && <Text style={{ color: "rgba(255,255,255,0.65)", marginTop: 8, fontSize: 12 }}>Playback unavailable</Text>}
               </Card.Content>
             </Card>
           )}

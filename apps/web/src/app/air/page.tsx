@@ -20,15 +20,17 @@ type Flight = {
 export default function AirPage() {
   const { api, user } = useAuth();
   const [flights, setFlights] = useState<Flight[]>([]);
+  const [integrationStatus, setIntegrationStatus] = useState("");
   const [search, setSearch] = useState({ departure: "Monrovia", arrival: "" });
   const [active, setActive] = useState<Flight | null>(null);
   const [passenger, setPassenger] = useState({ passengers: 1, passenger_name: "" });
   const [message, setMessage] = useState("");
 
   async function load() {
-    const list = (await api.air.flights(search.departure || undefined, search.arrival || undefined)) as unknown as Flight[];
-    setFlights(list);
-    setActive(list[0] || null);
+    const response = await api.air.flights(search.departure || undefined, search.arrival || undefined) as unknown;
+    const payload = Array.isArray(response) ? { results: response, integration_status: "configured" } : response as { results?: Flight[]; integration_status?: string };
+    const list = payload.results || [];
+    setIntegrationStatus(payload.integration_status || "configured"); setFlights(list); setActive(list[0] || null);
   }
 
   useEffect(() => {
@@ -72,6 +74,7 @@ export default function AirPage() {
             Search flights
           </button>
         </form>
+        {integrationStatus === "not_configured" && <p className="rv-card mb-4 p-4 text-sm text-[var(--rv-ink-muted)]">Travel search is unavailable until a supplier integration is configured.</p>}
 
         <div className="grid gap-4 lg:grid-cols-2">
           <section className="rv-card p-5">

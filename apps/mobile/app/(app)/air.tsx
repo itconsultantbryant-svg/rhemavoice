@@ -25,6 +25,7 @@ type Flight = {
 export default function AirScreen() {
   const user = useAppSelector((s) => s.auth.user);
   const [flights, setFlights] = useState<Flight[]>([]);
+  const [integrationStatus, setIntegrationStatus] = useState("");
   const [departure, setDeparture] = useState("");
   const [arrival, setArrival] = useState("");
   const [selected, setSelected] = useState<Flight | null>(null);
@@ -40,7 +41,7 @@ export default function AirScreen() {
     setError("");
     api.air
       .flights(dep || undefined, arr || undefined)
-      .then((data: any) => { setFlights(data); setSelected(null); setBooked(false); })
+      .then((data: any) => { const payload = Array.isArray(data) ? { results: data, integration_status: "configured" } : data; setIntegrationStatus(payload.integration_status || "configured"); setFlights(payload.results || []); setSelected(null); setBooked(false); })
       .catch((e: any) => setError(e.message || "Failed to load"))
       .finally(() => setLoading(false));
   }
@@ -92,8 +93,8 @@ export default function AirScreen() {
               <Card style={{ marginTop: 20, backgroundColor: "rgba(34,197,94,0.1)" }}>
                 <Card.Content style={{ alignItems: "center", paddingVertical: 20 }}>
                   <Avatar.Icon size={48} icon="airplane-check" color="#22c55e" style={{ backgroundColor: "transparent" }} />
-                  <Text variant="titleMedium" style={{ marginTop: 8, fontWeight: "700" }}>Booking Confirmed!</Text>
-                  <Text style={{ color: colors.inkMuted, marginTop: 4 }}>Your e-ticket will be delivered shortly.</Text>
+                  <Text variant="titleMedium" style={{ marginTop: 8, fontWeight: "700" }}>Request submitted</Text>
+                  <Text style={{ color: colors.inkMuted, marginTop: 4 }}>Confirmation depends on the travel supplier.</Text>
                   <Button mode="outlined" onPress={() => { setSelected(null); setBooked(false); }} style={{ marginTop: 12 }}>
                     Search more flights
                   </Button>
@@ -114,6 +115,7 @@ export default function AirScreen() {
           <>
             <Text variant="titleLarge" style={{ marginTop: 12, fontWeight: "700" }}>RhemaAir</Text>
             <Text style={{ color: colors.inkMuted, marginTop: 4 }}>Search and book flights through approved travel agencies</Text>
+            {integrationStatus === "not_configured" && <Text style={{ color: colors.gold500, marginTop: 8 }}>Supplier search is not configured.</Text>}
 
             <Card style={{ marginTop: 16, backgroundColor: colors.elevated }}>
               <Card.Content>

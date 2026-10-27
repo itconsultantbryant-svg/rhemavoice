@@ -15,6 +15,7 @@ type StreamItem = {
   viewers: number;
   duration_min: number;
   is_featured: boolean;
+  playback_url: string;
   chat_preview?: Array<{ id: string; display_name: string; message: string }>;
 };
 
@@ -64,12 +65,13 @@ export default function StreamingPage() {
               <div className="absolute left-4 top-4 rounded-full bg-red-600 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
                 {active?.status || "offline"}
               </div>
-              <div className="text-center">
+               <div className="text-center">
                 <p className="font-display text-2xl">{active?.title || "Select a stream"}</p>
                 <p className="mt-2 text-sm text-white/75">{active?.church_name}</p>
-                {active?.status === "live" && (
-                  <p className="mt-3 text-gold-300">{active.viewers} watching</p>
-                )}
+                 {active?.status === "live" && (
+                   <p className="mt-3 text-gold-300">{active.viewers} watching</p>
+                 )}
+                 {active?.playback_url ? <a className="rv-btn mt-4 bg-gold-500 text-purple-950" href={active.playback_url} target="_blank" rel="noreferrer">Open player</a> : <p className="mt-3 text-sm text-white/70">Playback unavailable</p>}
               </div>
             </div>
             <div className="p-5">

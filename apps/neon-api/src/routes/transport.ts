@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { one, query, uuid } from "../db";
 import { requireUser } from "../auth";
-import { notFound, respond } from "../http";
+import { detail, notFound, respond } from "../http";
 import { bool, iso, num, str } from "../serializers";
 
 export const transportRoutes = new Hono();
@@ -103,6 +103,9 @@ transportRoutes.post("/providers/:id/book/", async (c) => {
   if (!provider) return respond(c, notFound());
 
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const pickup = str(body.pickup_location).trim();
+  const destination = str(body.destination).trim();
+  if (!pickup || !destination) return respond(c, detail("Pickup location and destination are required."));
   const bookingId = uuid();
 
   await query(
@@ -113,8 +116,8 @@ transportRoutes.post("/providers/:id/book/", async (c) => {
       bookingId,
       provider.id,
       auth.user.id,
-      str(body.pickup_location),
-      str(body.destination),
+      pickup,
+      destination,
       str(body.service_type),
       str(body.notes),
     ],

@@ -77,5 +77,21 @@ for ENDPOINT in music/tracks marketplace/products store/products jobs/postings; 
   echo "ok ($N)"
 done
 
+step "GET /api/v1/academy/institutions/chayil/cci/command-center/"
+CCI=$(curl -fsS -m 60 "$BASE/api/v1/academy/institutions/chayil/cci/command-center/" -H "Authorization: Bearer $TOKEN")
+printf '%s' "$CCI" | json 'd["readiness"]["open_tasks"]' >/dev/null || fail
+printf '%s' "$CCI" | json 'd["integration_status"]["file_storage"]' >/dev/null || fail
+echo "ok"
+
+step "GET CCI private Staff Connect as student"
+STAFF_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -m 60 "$BASE/api/v1/academy/institutions/chayil/cci/staff-connect/" -H "Authorization: Bearer $TOKEN")
+[[ "$STAFF_STATUS" == "403" ]] || fail
+echo "ok (403)"
+
+step "GET CCI Bonding Corner"
+BONDING=$(curl -fsS -m 60 "$BASE/api/v1/academy/institutions/chayil/cci/bonding/" -H "Authorization: Bearer $TOKEN")
+printf '%s' "$BONDING" | json 'isinstance(d["posts"], list)' >/dev/null || fail
+echo "ok"
+
 echo
 echo "Smoke test passed against $BASE"

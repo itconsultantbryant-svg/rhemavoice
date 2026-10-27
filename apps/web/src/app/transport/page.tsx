@@ -35,7 +35,7 @@ export default function TransportPage() {
     e.preventDefault();
     if (!active) return;
     await api.transport.book(active.id, form);
-    setMessage("Booking request sent. The provider will contact you.");
+    setMessage("Request saved. Awaiting provider review; no driver or fare is confirmed yet.");
     setForm({ pickup_location: "", destination: "", service_type: "", notes: "" });
   }
 

@@ -3,17 +3,18 @@
 import { FadeIn } from "@rhemavoice/ui";
 import { BRAND, type DashboardPayload, type ModuleMeta } from "@rhemavoice/shared";
 import Link from "next/link";
+import { BookOpen, CalendarDays, Church, Compass, Radio, Sparkles, Target } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { ModuleIcon } from "@/components/ModuleIcon";
 import { useAuth } from "@/lib/auth";
 
-function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+function Section({ title, icon, children, action }: { title: string; icon?: React.ReactNode; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <section className="rv-card p-5">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-xl">{title}</h2>
+        <h2 className="flex items-center gap-2 font-display text-xl">{icon}{title}</h2>
         {action}
       </div>
       <div className="mt-3">{children}</div>
@@ -64,10 +65,9 @@ export default function DashboardPage() {
     <AppShell>
       <main className="mx-auto max-w-6xl px-4 py-6 md:px-6">
         <FadeIn>
-          <div className="mb-6">
-            <p className="text-sm uppercase tracking-[0.22em] text-gold-500">{BRAND.name}</p>
-            <h1 className="font-display mt-1 text-2xl md:text-3xl">{dash.greeting}</h1>
-            <p className="mt-0.5 text-sm text-[var(--rv-ink-muted)]">{dash.tagline || BRAND.tagline}</p>
+          <div className="mb-6 flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gold-500/10 text-gold-500"><Sparkles className="h-6 w-6" /></span>
+            <div><p className="text-xs uppercase tracking-[0.18em] text-gold-500">{BRAND.name}</p><h1 className="font-display text-2xl md:text-3xl">{dash.greeting}</h1></div>
           </div>
 
           <div className="mb-8">
@@ -77,7 +77,6 @@ export default function DashboardPage() {
           {/* Modules grid */}
           <section className="mb-10">
             <h2 className="font-display mb-1 text-2xl">Modules</h2>
-            <p className="mb-4 text-sm text-[var(--rv-ink-muted)]">Tap a service to open</p>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
               {modules.map((m, i) => (
                 <Link
@@ -101,12 +100,11 @@ export default function DashboardPage() {
 
           {/* Live & happening now */}
           <section className="mb-4">
-            <h2 className="font-display text-2xl">Live & happening now</h2>
-            <p className="mt-1 text-sm text-[var(--rv-ink-muted)]">Streams, rooms, radio, and updates</p>
+            <h2 className="flex items-center gap-2 font-display text-2xl"><Compass className="h-6 w-6 text-gold-500"/>Now</h2>
           </section>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Section title="Live Now" action={<Link href="/streaming" className="text-sm text-gold-500">Watch</Link>}>
+            <Section title="Live" icon={<Church className="h-5 w-5 text-gold-500"/>} action={<Link href="/streaming" aria-label="Open live streams" className="text-sm text-gold-500">→</Link>}>
               {dash.live_churches.map((item) => (
                 <div
                   key={item.id}
@@ -141,7 +139,7 @@ export default function DashboardPage() {
               ))}
             </Section>
 
-            <Section title="Live Radio" action={<Link href="/radio" className="text-sm text-gold-500">Listen</Link>}>
+            <Section title="Radio" icon={<Radio className="h-5 w-5 text-gold-500"/>} action={<Link href="/radio" aria-label="Open radio" className="text-sm text-gold-500">→</Link>}>
               {dash.live_radio.map((item) => (
                 <div
                   key={item.id}
@@ -159,14 +157,14 @@ export default function DashboardPage() {
               ))}
             </Section>
 
-            <Section title="Daily Verse">
+            <Section title="Verse" icon={<BookOpen className="h-5 w-5 text-gold-500"/>}>
               <p className="italic text-[var(--rv-ink-muted)]">&ldquo;{dash.daily_verse.text}&rdquo;</p>
               <p className="mt-2 text-sm font-semibold text-gold-500">
                 {dash.daily_verse.reference} · {dash.daily_verse.translation}
               </p>
             </Section>
 
-            <Section title="Academy" action={<Link href="/academy" className="text-sm text-gold-500">Enter</Link>}>
+            <Section title="Academy" icon={<BookOpen className="h-5 w-5 text-gold-500"/>} action={<Link href="/academy" aria-label="Open academy" className="text-sm text-gold-500">→</Link>}>
               {dash.academy_courses.map((c) => (
                 <div key={c.id} className="mb-3 last:mb-0">
                   <div className="flex justify-between text-sm">
@@ -182,8 +180,8 @@ export default function DashboardPage() {
             </Section>
 
             <Section
-              title="Opportunities"
-              action={<Link href="/opportunities" className="text-sm text-gold-500">Browse</Link>}
+              title="Opportunities" icon={<Target className="h-5 w-5 text-gold-500"/>}
+              action={<Link href="/opportunities" aria-label="Open opportunities" className="text-sm text-gold-500">→</Link>}
             >
               {dash.featured_opportunities.map((o) => (
                 <div
@@ -201,7 +199,7 @@ export default function DashboardPage() {
               ))}
             </Section>
 
-            <Section title="Events & Travel">
+            <Section title="Events" icon={<CalendarDays className="h-5 w-5 text-gold-500"/>}>
               {dash.upcoming_events.slice(0, 2).map((e) => (
                 <div key={e.id} className="border-b border-[var(--rv-border)] py-2 last:border-0">
                   <p className="font-medium">{e.title}</p>

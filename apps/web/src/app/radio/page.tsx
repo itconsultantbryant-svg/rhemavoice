@@ -12,6 +12,7 @@ type Station = {
   description: string;
   presenters: string;
   is_live: boolean;
+  stream_url: string;
   listeners: number;
   is_favorite: boolean;
   podcasts?: Array<{ id: string; title: string; host: string; duration_min: number }>;
@@ -21,7 +22,6 @@ export default function RadioPage() {
   const { api, user } = useAuth();
   const [stations, setStations] = useState<Station[]>([]);
   const [active, setActive] = useState<Station | null>(null);
-  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -45,33 +45,18 @@ export default function RadioPage() {
         <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
           <section className="rv-card overflow-hidden p-0">
             <div className="bg-gradient-to-r from-purple-900 to-purple-700 p-6 text-white">
-              <p className="text-xs uppercase tracking-[0.2em] text-gold-300">Now playing</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-gold-300">{active?.is_live ? "Live now" : "Station"}</p>
               <h2 className="font-display mt-2 text-3xl">{active?.name || "Select a station"}</h2>
               <p className="mt-2 text-sm text-white/80">{active?.presenters}</p>
-              <p className="mt-1 text-sm text-gold-300">
-                {active?.genre} · {active?.listeners || 0} listeners
-              </p>
+              <p className="mt-1 text-sm text-gold-300">{active?.genre}{active?.is_live ? ` · ${active.listeners} listening` : " · Offline"}</p>
               <div className="mt-5 flex flex-wrap gap-2">
-                <button className="rv-btn bg-gold-500 text-purple-950" onClick={() => setPlaying((p) => !p)}>
-                  {playing ? "Pause" : "Listen live"}
-                </button>
+                {active?.is_live && active.stream_url ? <audio controls src={active.stream_url} className="h-10 max-w-full" aria-label={`Listen to ${active.name}`} /> : <span className="rounded-lg border border-white/20 px-3 py-2 text-sm text-white/70">Stream unavailable</span>}
                 {active && (
                   <button className="rv-btn border border-white/30 bg-white/10" onClick={() => toggleFavorite(active.id)}>
                     {active.is_favorite ? "Unfavorite" : "Favorite"}
                   </button>
                 )}
               </div>
-              {playing && (
-                <div className="mt-4 flex items-end gap-1">
-                  {[4, 8, 5, 10, 6, 9, 4, 7].map((h, i) => (
-                    <span
-                      key={i}
-                      className="w-1.5 animate-pulse rounded-full bg-gold-300"
-                      style={{ height: h * 4, animationDelay: `${i * 80}ms` }}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
             <div className="p-5">
               <p className="text-sm text-[var(--rv-ink-muted)]">{active?.description}</p>
@@ -85,7 +70,7 @@ export default function RadioPage() {
                         {p.host} · {p.duration_min} min
                       </p>
                     </div>
-                    <button className="rv-btn-ghost text-xs">Play</button>
+                    <span className="text-xs text-[var(--rv-ink-muted)]">Audio pending</span>
                   </div>
                 ))}
                 {!active?.podcasts?.length && <p className="text-sm text-[var(--rv-ink-muted)]">No podcasts yet.</p>}
@@ -108,9 +93,7 @@ export default function RadioPage() {
                     <span className="font-medium">{s.name}</span>
                     {s.is_live && <span className="text-xs text-gold-500">LIVE</span>}
                   </div>
-                  <p className="mt-1 text-xs text-[var(--rv-ink-muted)]">
-                    {s.genre} · {s.listeners} listening
-                  </p>
+                    <p className="mt-1 text-xs text-[var(--rv-ink-muted)]">{s.genre} · {s.is_live ? `${s.listeners} listening` : "Offline"}</p>
                 </button>
               ))}
             </div>

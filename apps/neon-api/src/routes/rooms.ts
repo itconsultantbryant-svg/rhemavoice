@@ -98,18 +98,20 @@ function serializeRoom(
   poll: PollRow | null,
   mine: ParticipantRow | null,
 ) {
+  const voiceEnabled = process.env.ROOMS_WEBRTC_ENABLED === "true" && Boolean(process.env.ROOMS_WEBRTC_PROVIDER);
   return {
     id: row.id,
     title: row.title,
     description: row.description,
     visibility: row.visibility,
     topic: row.topic,
-    is_live: bool(row.is_live),
+    is_live: voiceEnabled && bool(row.is_live),
     participant_count: num(row.participant_count),
     max_speakers: num(row.max_speakers),
     host_name: row.host_name,
     scheduled_at: iso(row.scheduled_at),
     recording_enabled: bool(row.recording_enabled),
+    voice_enabled: voiceEnabled,
     participants_preview: participants.map(serializeParticipant),
     active_poll: poll ? serializePoll(poll) : null,
     my_participation: mine ? serializeParticipant(mine) : null,
@@ -305,6 +307,9 @@ roomsRoutes.post("/:id/raise_hand/", async (c) => {
 
   const room = await findRoom(c.req.param("id"));
   if (!room) return respond(c, notFound());
+  if (process.env.ROOMS_WEBRTC_ENABLED !== "true" || !process.env.ROOMS_WEBRTC_PROVIDER) {
+    return respond(c, detail("Voice participation is not configured.", 503));
+  }
 
   const user = auth.user;
   const participant = await getOrCreateParticipant(
@@ -326,6 +331,9 @@ roomsRoutes.post("/:id/mute/", async (c) => {
 
   const room = await findRoom(c.req.param("id"));
   if (!room) return respond(c, notFound());
+  if (process.env.ROOMS_WEBRTC_ENABLED !== "true" || !process.env.ROOMS_WEBRTC_PROVIDER) {
+    return respond(c, detail("Voice participation is not configured.", 503));
+  }
 
   const participant = await one<ParticipantRow>(
     `select ${PARTICIPANT_FIELDS} from rooms_roomparticipant where room_id = $1 and user_id = $2`,

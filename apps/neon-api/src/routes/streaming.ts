@@ -50,18 +50,24 @@ function serializeChat(row: ChatRow) {
 }
 
 function serializeStream(row: StreamRow, chat: ChatRow[]) {
+  // Demo/placeholder playback records must never be presented as an active
+  // broadcast. A deployment must explicitly enable and supply its streaming
+  // integration before a stream can be reported as live.
+  const playbackConfigured = process.env.STREAMING_ENABLED === "true" &&
+    /^https:\/\//i.test(row.playback_url) && !/example\.com/i.test(row.playback_url);
+  const status = row.status === "live" && !playbackConfigured ? "offline" : row.status;
   return {
     id: row.id,
     title: row.title,
     description: row.description,
-    status: row.status,
+    status,
     church_name: row.church_name,
     series: row.series,
     scheduled_at: iso(row.scheduled_at),
-    viewers: num(row.viewers),
+    viewers: status === "live" ? num(row.viewers) : 0,
     duration_min: num(row.duration_min),
     is_featured: bool(row.is_featured),
-    playback_url: row.playback_url,
+    playback_url: playbackConfigured ? row.playback_url : "",
     chat_preview: chat.map(serializeChat),
     created_at: iso(row.created_at),
   };

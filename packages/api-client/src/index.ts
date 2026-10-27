@@ -208,8 +208,66 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
           enrollments: Array<Record<string, unknown>>;
           certificates: Array<Record<string, unknown>>;
           categories: Array<{ id: string; name: string; slug: string }>;
-          academies?: Array<Record<string, unknown>>;
+         academies?: Array<Record<string, unknown>>;
         }>("/academy/me/"),
+      cciCommandCenter: (code = "chayil") =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/command-center/`),
+      createCciTask: (code: string, payload: { title: string; description?: string; due_at?: string; assigned_to?: string }) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/tasks/`, {
+          method: "POST", body: JSON.stringify(payload),
+        }),
+      updateCciTaskStatus: (code: string, id: string, status: string) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/tasks/${id}/`, {
+          method: "PATCH", body: JSON.stringify({ status }),
+        }),
+      publishCciAnnouncement: (code: string, payload: { title: string; body: string; audience?: "all" | "staff" | "students" }) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/announcements/`, {
+          method: "POST", body: JSON.stringify(payload),
+        }),
+      cciMembers: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/members/`),
+      assignCciRole: (code: string, userId: string, role: string) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/members/${userId}/roles/`, {
+          method: "POST", body: JSON.stringify({ role }),
+        }),
+      revokeCciRole: (code: string, userId: string, role: string) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/members/${userId}/roles/${role}/`, {
+          method: "DELETE",
+        }),
+      cciResources: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/resources/`),
+      createCciResource: (code: string, payload: { title: string; description?: string; category?: string; access_level?: "staff" | "participants" }) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/resources/`, { method: "POST", body: JSON.stringify(payload) }),
+      submitCciResource: (code: string, id: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/resources/${id}/submit/`, { method: "POST" }),
+      reviewCciResource: (code: string, id: string, status: "approved" | "rejected", review_note?: string) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/resources/${id}/review/`, { method: "POST", body: JSON.stringify({ status, review_note }) }),
+      cciEvents: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/events/`),
+      createCciEvent: (code: string, payload: { title: string; starts_at: string; ends_at?: string; description?: string; location?: string; audience?: "all" | "staff" | "students" }) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/events/`, { method: "POST", body: JSON.stringify(payload) }),
+      updateCciEventStatus: (code: string, id: string, status: "scheduled" | "cancelled" | "completed") =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/events/${id}/`, { method: "PATCH", body: JSON.stringify({ status }) }),
+      myCciAdmission: (code: string) => request<Record<string, unknown> | null>(`/academy/institutions/${code}/cci/admissions/me/`),
+      saveCciAdmission: (code: string, fields: Record<string, unknown>) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/admissions/me/`, { method: "PUT", body: JSON.stringify({ fields }) }),
+      submitCciAdmission: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/admissions/me/submit/`, { method: "POST" }),
+      cciAdmissions: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/admissions/`),
+      reviewCciAdmission: (code: string, id: string, status: "under_review" | "accepted" | "rejected", reviewer_note?: string) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/admissions/${id}/review/`, { method: "POST", body: JSON.stringify({ status, reviewer_note }) }),
+      myCciFormation: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/formation/me/`),
+      createCciFormationNote: (code: string, studentId: string, payload: { summary: string; visibility?: "staff" | "student" }) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/students/${studentId}/formation/`, { method: "POST", body: JSON.stringify(payload) }),
+      recordCciAttendance: (code: string, studentId: string, payload: { status: "present" | "late" | "absent" | "excused"; event_id?: string; note?: string }) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/students/${studentId}/attendance/`, { method: "POST", body: JSON.stringify(payload) }),
+      cciStudentRecords: (code: string, studentId: string) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/students/${studentId}/records/`),
+      cciGradebook: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/gradebook/`),
+      myCciGrades: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/grades/me/`),
+      gradeCciSubmission: (code: string, id: string, score: number, reason?: string) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/submissions/${id}/grade/`, { method: "POST", body: JSON.stringify({ score, reason }) }),
+      cciReportOverview: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/reports/overview/`),
+      cciStaffPosts: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/staff-connect/`),
+      createCciStaffPost: (code: string, body: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/staff-connect/`, { method: "POST", body: JSON.stringify({ body }) }),
+      cciBondingPosts: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/bonding/`),
+      createCciBondingPost: (code: string, body: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/bonding/`, { method: "POST", body: JSON.stringify({ body }) }),
+      moderateCciBondingPost: (code: string, id: string, status: "approved" | "rejected", note?: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/bonding/${id}/moderate/`, { method: "POST", body: JSON.stringify({ status, note }) }),
     },
     streaming: {
       list: (status?: string) =>

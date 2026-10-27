@@ -74,6 +74,17 @@ export default function AcademyChoose() {
           </Pressable>
         )}
 
+        {featured?.code === "chayil" && (
+          <Pressable
+            onPress={() => router.push("/(app)/academy/chayil/cci")}
+            style={{ marginTop: 12, backgroundColor: colors.elevated, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(197,160,72,0.35)" }}
+          >
+            <Text style={{ color: colors.gold500, fontSize: 11, letterSpacing: 1 }}>FOR ENROLLED CCI PARTICIPANTS</Text>
+            <Text style={{ color: colors.ink, fontWeight: "700", fontSize: 17, marginTop: 4 }}>CCI Command Center</Text>
+            <Text style={{ color: colors.inkMuted, marginTop: 4, fontSize: 13 }}>Tasks, announcements, and program readiness</Text>
+          </Pressable>
+        )}
+
         <Text variant="titleMedium" style={{ marginTop: 24, fontWeight: "700" }}>
           Other academies
         </Text>

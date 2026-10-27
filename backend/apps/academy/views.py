@@ -54,7 +54,7 @@ class InstitutionViewSet(viewsets.ReadOnlyModelViewSet):
                 membership, _ = AcademyMembership.objects.get_or_create(
                     institution=institution,
                     user=request.user,
-                    defaults={"role": "student", "current_week": 7, "overall_progress": 22, "attendance_pct": 96},
+                    defaults={"role": "student", "current_week": 1, "overall_progress": 0, "attendance_pct": 0},
                 )
             else:
                 return Response(

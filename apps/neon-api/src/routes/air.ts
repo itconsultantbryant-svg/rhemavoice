@@ -6,6 +6,10 @@ import { bool, iso, num, str } from "../serializers";
 
 export const airRoutes = new Hono();
 
+function supplierEnabled(): boolean {
+  return process.env.AIR_SUPPLIER_ENABLED === "true" && Boolean(process.env.AIR_SUPPLIER_PROVIDER);
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type AgencyRow = {
@@ -120,6 +124,7 @@ airRoutes.get("/flights/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
 
+  if (!supplierEnabled()) return c.json({ integration_status: "not_configured", results: [] });
   const params: unknown[] = [];
   const conditions: string[] = [];
 
@@ -145,6 +150,7 @@ airRoutes.get("/flights/", async (c) => {
 airRoutes.post("/flights/:id/book/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
+  if (!supplierEnabled()) return respond(c, detail("Travel supplier booking is not configured.", 503));
 
   const id = c.req.param("id");
   if (!UUID_RE.test(id)) return respond(c, notFound());

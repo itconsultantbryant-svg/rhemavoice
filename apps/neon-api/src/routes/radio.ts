@@ -55,14 +55,19 @@ function serializeStation(
   podcasts: PodcastRow[],
   isFavorite: boolean,
 ) {
+  // A database flag alone is not proof of a reachable broadcast. Until a
+  // streaming provider is configured, clients must not present demo/example
+  // streams as live or expose a non-functional player URL.
+  const streamConfigured = process.env.RADIO_STREAMING_ENABLED === "true" &&
+    /^https:\/\//i.test(row.stream_url) && !/example\.com/i.test(row.stream_url);
   return {
     id: row.id,
     name: row.name,
     genre: row.genre,
     description: row.description,
-    stream_url: row.stream_url,
+    stream_url: streamConfigured ? row.stream_url : "",
     presenters: row.presenters,
-    is_live: bool(row.is_live),
+    is_live: streamConfigured && bool(row.is_live),
     listeners: num(row.listeners),
     is_favorite: isFavorite,
     podcasts: podcasts.map(serializePodcast),

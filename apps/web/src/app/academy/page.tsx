@@ -67,6 +67,14 @@ export default function AcademyChoosePage() {
           </Link>
         )}
 
+        {featured?.code === "chayil" && (
+          <Link href="/academy/chayil/cci" className="rv-card mb-6 block border-gold-500/30 p-5 transition hover:border-gold-500/60">
+            <p className="text-xs uppercase tracking-[0.18em] text-gold-500">For enrolled CCI participants</p>
+            <h2 className="font-display mt-1 text-xl">CCI Command Center</h2>
+            <p className="mt-1 text-sm text-[var(--rv-ink-muted)]">Tasks, official announcements, and program readiness from your shared RhemaVoice account.</p>
+          </Link>
+        )}
+
         <h3 className="font-display mb-3 text-xl">Other academies</h3>
         <div className="space-y-3">
           {others.map((a) => (

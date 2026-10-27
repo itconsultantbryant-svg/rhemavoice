@@ -28,6 +28,7 @@ type Room = {
   is_live: boolean;
   participant_count: number;
   host_name: string;
+  voice_enabled: boolean;
   my_participation?: { role: string; is_muted: boolean; hand_raised: boolean } | null;
   active_poll?: Poll | null;
   participants_preview?: Participant[];
@@ -208,21 +209,22 @@ export default function RoomsScreen() {
                       <Button mode="outlined" onPress={leaveRoom} compact textColor={colors.ink}>
                         Leave
                       </Button>
-                      <IconButton
+                      {active.voice_enabled && <IconButton
                         icon="hand-wave"
                         onPress={raiseHand}
                         iconColor={active.my_participation.hand_raised ? colors.gold500 : colors.inkMuted}
                         size={22}
-                      />
-                      <IconButton
+                      />}
+                      {active.voice_enabled && <IconButton
                         icon={active.my_participation.is_muted ? "microphone-off" : "microphone"}
                         onPress={toggleMute}
                         iconColor={active.my_participation.is_muted ? colors.danger : colors.gold300}
                         size={22}
-                      />
+                      />}
                     </>
                   )}
                 </View>
+                {!active.voice_enabled && <Text style={{ color: "rgba(255,255,255,0.7)", marginTop: 10, fontSize: 12 }}>Voice is not configured</Text>}
 
                 {active.participants_preview && active.participants_preview.length > 0 && (
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 12 }}>

@@ -3,6 +3,13 @@ from django.contrib import admin
 from .models import (
     AcademyEvent,
     AcademyMembership,
+    CCIAnnouncement,
+    CCIAuditEvent,
+    CCIRoleAssignment,
+    CCIResource,
+    CCIEvent,
+    CCIAdmissionApplication,
+    CCITask,
     Assignment,
     AssignmentSubmission,
     Certificate,
@@ -19,6 +26,13 @@ from .models import (
 
 admin.site.register(Institution)
 admin.site.register(AcademyMembership)
+admin.site.register(CCIRoleAssignment)
+admin.site.register(CCITask)
+admin.site.register(CCIAnnouncement)
+admin.site.register(CCIAuditEvent)
+admin.site.register(CCIResource)
+admin.site.register(CCIEvent)
+admin.site.register(CCIAdmissionApplication)
 admin.site.register(MentorAssignment)
 admin.site.register(CourseCategory)
 admin.site.register(Course)
