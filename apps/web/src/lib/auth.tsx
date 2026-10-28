@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
-  }, [user?.theme_preference]);
+  }, [user]);
 
   const value: AuthContextValue = {
     user,

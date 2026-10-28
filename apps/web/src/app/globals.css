@@ -55,3 +55,39 @@ h3,
   background: linear-gradient(135deg, var(--rv-purple-900), var(--rv-purple-700) 55%, var(--rv-gold-500));
   border: none;
 }
+
+/* Chayil is an academy workspace, deliberately distinct from the dark
+   consumer-facing RhemaVoice shell. */
+.chayil-workspace {
+  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  background: #f8fafc;
+}
+
+.chayil-workspace h1,
+.chayil-workspace h2,
+.chayil-workspace h3,
+.chayil-workspace .font-display {
+  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+}
+
+.chayil-workspace .rv-card {
+  border-color: #e2e8f0;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+}
+
+.chayil-workspace .rv-input {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+}
+
+.chayil-workspace .rv-btn-primary {
+  background: #6b21a8;
+  color: #fff;
+}
+
+.chayil-workspace .rv-btn-ghost {
+  border-color: #cbd5e1;
+  color: #334155;
+}

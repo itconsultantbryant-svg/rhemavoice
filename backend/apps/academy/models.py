@@ -245,7 +245,9 @@ class CCIAttendanceRecord(models.Model):
 
 class CCIGradeChange(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    submission = models.ForeignKey(AssignmentSubmission, on_delete=models.CASCADE, related_name="cci_grade_changes")
+    # AssignmentSubmission is declared later in this module, so this relation
+    # must use Django's lazy model reference during app initialization.
+    submission = models.ForeignKey("AssignmentSubmission", on_delete=models.CASCADE, related_name="cci_grade_changes")
     previous_score = models.PositiveIntegerField(null=True, blank=True)
     new_score = models.PositiveIntegerField(null=True, blank=True)
     reason = models.TextField(blank=True, default="")

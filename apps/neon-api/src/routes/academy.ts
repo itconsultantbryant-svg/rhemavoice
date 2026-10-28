@@ -900,6 +900,17 @@ const CCI_ROLES = new Set([
 
 type CCIContext = { institution: InstitutionRow; roles: string[]; canManage: boolean; isStaff: boolean };
 
+type CCIWorkspaceRole = "management" | "administrator" | "teacher" | "student" | "staff" | "mentor";
+
+function cciWorkspaceRole(ctx: CCIContext, user: { is_superuser: boolean; roles: string[] }): CCIWorkspaceRole {
+  if (user.is_superuser || user.roles.includes("super_admin") || user.roles.includes("platform_admin") || ctx.roles.some((role) => ["founder", "program_director"].includes(role))) return "management";
+  if (ctx.roles.includes("administration")) return "administrator";
+  if (ctx.roles.some((role) => ["curriculum_director", "instructor"].includes(role))) return "teacher";
+  if (ctx.roles.some((role) => ["formation_coordinator", "mentor"].includes(role))) return "mentor";
+  if (ctx.roles.some((role) => ["technology_director", "communications_director"].includes(role))) return "staff";
+  return "student";
+}
+
 async function cciContext(code: string, user: { id: string; is_superuser: boolean; roles: string[] }): Promise<CCIContext | null> {
   const institution = await one<InstitutionRow>(
     `select ${INSTITUTION_COLUMNS} from academy_institution where code = $1 and is_active = true`, [code],
@@ -953,6 +964,84 @@ academyRoutes.get("/institutions/:code/cci/command-center/", async (c) => {
     readiness: { total_tasks: tasks.length, open_tasks: openTasks, completed_tasks: tasks.filter((task) => task.status === "completed").length },
     tasks: tasks.map(serializeCCITask), announcements: announcements.map((a) => ({ ...a, published_at: iso(a.published_at) })),
     integration_status: { file_storage: "pending_configuration", calendar: "pending_configuration", staff_connect: "not_started" },
+  });
+});
+
+// The workspace is the role-aware entry point used by the Chayil web and
+// mobile clients. It intentionally returns only aggregate data for staff and
+// management roles; detailed records remain behind their existing endpoints.
+academyRoutes.get("/institutions/:code/cci/workspace/", async (c) => {
+  const auth = await requireUser(c);
+  if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user);
+  if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+
+  const role = cciWorkspaceRole(ctx, auth.user);
+  const taskScope = ctx.isStaff ? "institution_id = $1" : "institution_id = $1 and assigned_to = $2";
+  const taskArgs = ctx.isStaff ? [ctx.institution.id] : [ctx.institution.id, auth.user.id];
+  const [tasks, announcements, memberCount, courseCount, submissionCount, sessionCount, auditCount] = await Promise.all([
+    query<{ status: string; n: number }>(`select status, count(*)::int as n from academy_ccitask where ${taskScope} group by status`, taskArgs),
+    query<{ id: string; title: string; body: string; audience: string; published_at: Date | null }>(
+      `select id, title, body, audience, published_at from academy_cciannouncement
+       where institution_id = $1 and is_published = true and (audience = 'all' or audience = $2)
+       order by published_at desc limit 4`,
+      [ctx.institution.id, ctx.isStaff ? "staff" : "students"],
+    ),
+    ctx.isStaff ? count(`select count(*) as n from academy_academymembership where institution_id = $1 and is_active = true`, [ctx.institution.id]) : Promise.resolve(0),
+    ctx.isStaff ? count(`select count(*) as n from academy_course where institution_id = $1 and is_published = true`, [ctx.institution.id]) : Promise.resolve(0),
+    role === "teacher" || role === "management" || role === "administrator"
+      ? count(`select count(*) as n from academy_assignmentsubmission s join academy_assignment a on a.id = s.assignment_id where a.institution_id = $1 and s.status = 'submitted'`, [ctx.institution.id])
+      : Promise.resolve(0),
+    role === "mentor" ? count(`select count(*) as n from academy_mentorassignment where institution_id = $1 and mentor_id = $2`, [ctx.institution.id, auth.user.id]) : Promise.resolve(0),
+    role === "management" ? count(`select count(*) as n from academy_cciauditevent where institution_id = $1`, [ctx.institution.id]) : Promise.resolve(0),
+  ]);
+  const counts = Object.fromEntries(tasks.map((row) => [row.status, num(row.n)]));
+  const links: Record<CCIWorkspaceRole, Array<{ label: string; href: string; description: string }>> = {
+    management: [
+      { label: "Institution reports", href: "reports", description: "Readiness, admissions, attendance, and assessment totals" },
+      { label: "People & roles", href: "members", description: "Academy membership and CCI responsibilities" },
+      { label: "Resources", href: "resources", description: "Resource workflow and approvals" },
+      { label: "Calendar", href: "calendar", description: "Program schedule and events" },
+    ],
+    administrator: [
+      { label: "People & roles", href: "members", description: "Maintain active academy roles" },
+      { label: "Resources", href: "resources", description: "Manage approval-ready resources" },
+      { label: "Calendar", href: "calendar", description: "Coordinate CCI events" },
+      { label: "Community moderation", href: "bonding", description: "Review participant posts" },
+    ],
+    teacher: [
+      { label: "Gradebook", href: "gradebook", description: "Review and grade submitted work" },
+      { label: "Student records", href: "members", description: "Open learner formation records" },
+      { label: "Calendar", href: "calendar", description: "View program teaching dates" },
+      { label: "Staff connect", href: "staff-connect", description: "Coordinate with program staff" },
+    ],
+    student: [
+      { label: "My learning", href: "../", description: "Courses, live classes, and assignments" },
+      { label: "My grades", href: "gradebook", description: "View graded assessment work" },
+      { label: "Community", href: "bonding", description: "Encouragement and participant updates" },
+      { label: "Calendar", href: "calendar", description: "Upcoming CCI events" },
+    ],
+    staff: [
+      { label: "Staff connect", href: "staff-connect", description: "Private operational collaboration" },
+      { label: "Resources", href: "resources", description: "Program resource workflow" },
+      { label: "Calendar", href: "calendar", description: "Program schedule and events" },
+      { label: "Community", href: "bonding", description: "Participant updates" },
+    ],
+    mentor: [
+      { label: "Learner records", href: "members", description: "Open assigned learner records" },
+      { label: "My learning", href: "../", description: "Program curriculum and progress" },
+      { label: "Staff connect", href: "staff-connect", description: "Coordinate learner support" },
+      { label: "Community", href: "bonding", description: "Participant encouragement" },
+    ],
+  };
+  return c.json({
+    institution: serializeInstitution(ctx.institution), role, roles: ctx.roles,
+    metrics: {
+      open_tasks: (counts.not_started ?? 0) + (counts.in_progress ?? 0), completed_tasks: counts.completed ?? 0,
+      members: memberCount, courses: courseCount, pending_submissions: submissionCount, mentees: sessionCount, audit_events: auditCount,
+    },
+    announcements: announcements.map((item) => ({ ...item, published_at: iso(item.published_at) })),
+    links: links[role], can_manage: ctx.canManage,
   });
 });
 

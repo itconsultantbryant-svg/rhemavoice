@@ -212,6 +212,8 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
         }>("/academy/me/"),
       cciCommandCenter: (code = "chayil") =>
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/command-center/`),
+      cciWorkspace: (code = "chayil") =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/workspace/`),
       createCciTask: (code: string, payload: { title: string; description?: string; due_at?: string; assigned_to?: string }) =>
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/tasks/`, {
           method: "POST", body: JSON.stringify(payload),
