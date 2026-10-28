@@ -948,10 +948,10 @@ academyRoutes.get("/institutions/:code/cci/command-center/", async (c) => {
   if (!auth.ok) return respond(c, auth.response);
   const ctx = await cciContext(c.req.param("code"), auth.user);
   if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
-  const taskScope = ctx.isStaff ? "institution_id = $1" : "institution_id = $1 and assigned_to = $2";
+  const taskScope = ctx.isStaff ? "institution_id = $1" : "institution_id = $1 and assigned_to_id = $2";
   const taskArgs = ctx.isStaff ? [ctx.institution.id] : [ctx.institution.id, auth.user.id];
   const tasks = await query<{ id: string; title: string; description: string; status: string; due_at: Date | null; assigned_to: string | null; created_at: Date; updated_at: Date }>(
-    `select id, title, description, status, due_at, assigned_to, created_at, updated_at from academy_ccitask where ${taskScope} order by due_at nulls last, created_at desc limit 20`, taskArgs,
+    `select id, title, description, status, due_at, assigned_to_id as assigned_to, created_at, updated_at from academy_ccitask where ${taskScope} order by due_at nulls last, created_at desc limit 20`, taskArgs,
   );
   const announcements = await query<{ id: string; title: string; body: string; audience: string; published_at: Date | null }>(
     `select id, title, body, audience, published_at from academy_cciannouncement
@@ -977,7 +977,7 @@ academyRoutes.get("/institutions/:code/cci/workspace/", async (c) => {
   if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
 
   const role = cciWorkspaceRole(ctx, auth.user);
-  const taskScope = ctx.isStaff ? "institution_id = $1" : "institution_id = $1 and assigned_to = $2";
+  const taskScope = ctx.isStaff ? "institution_id = $1" : "institution_id = $1 and assigned_to_id = $2";
   const taskArgs = ctx.isStaff ? [ctx.institution.id] : [ctx.institution.id, auth.user.id];
   const [tasks, announcements, memberCount, courseCount, submissionCount, sessionCount, auditCount] = await Promise.all([
     query<{ status: string; n: number }>(`select status, count(*)::int as n from academy_ccitask where ${taskScope} group by status`, taskArgs),
@@ -1062,9 +1062,9 @@ academyRoutes.post("/institutions/:code/cci/tasks/", async (c) => {
     if (!member) return respond(c, fieldError({ assigned_to: ["Assignee must be an active CCI member."] }));
   }
   const id = uuid();
-  await query(`insert into academy_ccitask (id, institution_id, title, description, status, due_at, assigned_to, created_by, created_at, updated_at) values ($1,$2,$3,$4,'not_started',$5,$6,$7,now(),now())`, [id, ctx.institution.id, title, String(body.description ?? "").trim(), dueAt, assignedTo, auth.user.id]);
+  await query(`insert into academy_ccitask (id, institution_id, title, description, status, due_at, assigned_to_id, created_by_id, created_at, updated_at) values ($1,$2,$3,$4,'not_started',$5,$6,$7,now(),now())`, [id, ctx.institution.id, title, String(body.description ?? "").trim(), dueAt, assignedTo, auth.user.id]);
   await cciAudit(ctx.institution.id, auth.user.id, "cci.task.created", "task", id, { assigned_to: assignedTo });
-  const task = await one<{ id: string; title: string; description: string; status: string; due_at: Date | null; assigned_to: string | null; created_at: Date; updated_at: Date }>(`select id, title, description, status, due_at, assigned_to, created_at, updated_at from academy_ccitask where id = $1`, [id]);
+  const task = await one<{ id: string; title: string; description: string; status: string; due_at: Date | null; assigned_to: string | null; created_at: Date; updated_at: Date }>(`select id, title, description, status, due_at, assigned_to_id as assigned_to, created_at, updated_at from academy_ccitask where id = $1`, [id]);
   return c.json(serializeCCITask(task!), 201);
 });
 
@@ -1073,7 +1073,7 @@ academyRoutes.patch("/institutions/:code/cci/tasks/:id/", async (c) => {
   if (!auth.ok) return respond(c, auth.response);
   const ctx = await cciContext(c.req.param("code"), auth.user);
   if (!ctx || !UUID_RE.test(c.req.param("id"))) return respond(c, notFound());
-  const task = await one<{ id: string; assigned_to: string | null }>(`select id, assigned_to from academy_ccitask where id = $1 and institution_id = $2`, [c.req.param("id"), ctx.institution.id]);
+  const task = await one<{ id: string; assigned_to: string | null }>(`select id, assigned_to_id as assigned_to from academy_ccitask where id = $1 and institution_id = $2`, [c.req.param("id"), ctx.institution.id]);
   if (!task) return respond(c, notFound());
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const status = String(body.status ?? "");
