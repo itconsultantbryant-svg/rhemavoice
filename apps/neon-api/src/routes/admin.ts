@@ -21,6 +21,7 @@ type UserRow = {
   avatar_url: string;
   theme_preference: string;
   is_active: boolean;
+  approval_status: string;
   date_joined: Date;
 };
 
@@ -84,7 +85,7 @@ type ModuleAdminRow = {
 
 const USER_COLUMNS = `
   id, email, phone, first_name, last_name, display_name, avatar_url,
-  theme_preference, is_active, date_joined`;
+   theme_preference, is_active, approval_status, date_joined`;
 
 async function adminAuth(c: Context): Promise<AdminAuth> {
   const auth = await requireUser(c);
@@ -133,6 +134,7 @@ function serializeUser(row: UserRow, roles: string[]) {
     roles,
     theme_preference: row.theme_preference,
     is_active: bool(row.is_active),
+    approval_status: row.approval_status,
     date_joined: iso(row.date_joined) ?? "",
   };
 }
@@ -179,6 +181,16 @@ adminRoutes.patch("/users/:id/", async (c) => {
     await query(`update users_user set is_active = $1 where id = $2`, [isActive, user.id]);
     user.is_active = isActive;
     await audit(auth.user.id, `user.${isActive ? "activate" : "suspend"}:${user.email}`);
+  }
+
+  if ("approval_status" in body) {
+    const approvalStatus = String(body.approval_status);
+    if (!["approved", "rejected"].includes(approvalStatus)) return respond(c, detail("approval_status must be approved or rejected"));
+    const isActive = approvalStatus === "approved";
+    await query(`update users_user set approval_status = $1, is_active = $2 where id = $3`, [approvalStatus, isActive, user.id]);
+    user.approval_status = approvalStatus;
+    user.is_active = isActive;
+    await audit(auth.user.id, `user.${approvalStatus}:${user.email}`);
   }
 
   if ("role_codes" in body) {

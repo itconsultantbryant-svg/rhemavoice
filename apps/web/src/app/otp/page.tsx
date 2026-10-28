@@ -33,6 +33,20 @@ export default function OtpPage() {
       const res = await api.auth.verifyOtp(challengeId, code.trim());
       sessionStorage.removeItem("rv_challenge");
       setSession(res.user, res.tokens);
+      if (res.user.roles.some((role) => String(role) === "super_admin")) {
+        router.replace("/dashboard/super-admin");
+        return;
+      }
+      try {
+        const workspace = await api.academy.cciWorkspace("chayil") as { role?: string };
+        const roles = ["management", "administrator", "teacher", "student", "staff", "mentor"];
+        if (workspace.role && roles.includes(workspace.role)) {
+          router.replace(`/academy/chayil/cci/${workspace.role}`);
+          return;
+        }
+      } catch {
+        // Users without a Chayil membership use the general platform dashboard.
+      }
       router.replace("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "OTP failed");

@@ -5,6 +5,12 @@ from django.db import models
 
 
 class User(AbstractUser):
+    APPROVAL_STATUS = [
+        ("approved", "Approved"),
+        ("pending", "Pending approval"),
+        ("rejected", "Rejected"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     phone = models.CharField(max_length=32, blank=True, default="")
     display_name = models.CharField(max_length=120, blank=True, default="")
@@ -14,6 +20,7 @@ class User(AbstractUser):
         choices=[("light", "Light"), ("dark", "Dark"), ("system", "System")],
         default="system",
     )
+    approval_status = models.CharField(max_length=16, choices=APPROVAL_STATUS, default="approved")
 
     class Meta:
         ordering = ["email"]

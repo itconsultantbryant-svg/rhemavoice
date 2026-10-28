@@ -22,6 +22,9 @@ export default function WelcomePage() {
               Continue to login
             </Link>
           </Pressable>
+          <Link href="/register" className="rv-btn-ghost block w-full text-center">
+            Create an account
+          </Link>
           <Link href="/" className="rv-btn-ghost block w-full text-center">
             Back
           </Link>

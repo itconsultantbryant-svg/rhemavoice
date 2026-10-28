@@ -51,8 +51,8 @@ authRoutes.post("/register/", async (c) => {
   const id = crypto.randomUUID();
   await query(
     `insert into users_user (id, password, is_superuser, username, first_name, last_name, email,
-                             is_staff, is_active, date_joined, phone, display_name, avatar_url, theme_preference)
-     values ($1, $2, false, $3, $4, $5, $3, false, true, now(), $6, $7, '', 'system')`,
+                              is_staff, is_active, date_joined, phone, display_name, avatar_url, theme_preference, approval_status)
+      values ($1, $2, false, $3, $4, $5, $3, false, false, now(), $6, $7, '', 'system', 'pending')`,
     [id, hashPassword(password), lower, firstName, lastName, phone, `${firstName} ${lastName}`.trim()],
   );
 
@@ -65,7 +65,7 @@ authRoutes.post("/register/", async (c) => {
     );
   }
 
-  return c.json(await issueOtp(id, "register"), 201);
+  return c.json({ detail: "Registration submitted. An administrator must approve your account before you can sign in." }, 201);
 });
 
 authRoutes.post("/login/", async (c) => {
@@ -81,11 +81,11 @@ authRoutes.post("/login/", async (c) => {
   const user = await one<{
     id: string;
     password: string;
-    is_active: boolean;
+    is_active: boolean; approval_status: string;
     username: string;
     email: string;
   }>(
-    `select id, password, is_active, username, email from users_user where lower(email) = $1 or lower(username) = $1`,
+    `select id, password, is_active, approval_status, username, email from users_user where lower(email) = $1 or lower(username) = $1`,
     [email],
   );
 
@@ -93,6 +93,8 @@ authRoutes.post("/login/", async (c) => {
     return respond(c, unauthorized("Invalid credentials."));
   }
   if (!user.is_active) {
+    if (user.approval_status === "pending") return respond(c, detail("Your account is awaiting administrator approval.", 403));
+    if (user.approval_status === "rejected") return respond(c, detail("Your registration was not approved. Contact support.", 403));
     return respond(c, unauthorized("Account is suspended. Contact support."));
   }
   await query(`update users_user set last_login = now() where id = $1`, [user.id]);

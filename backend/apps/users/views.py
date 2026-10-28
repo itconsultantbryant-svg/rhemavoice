@@ -60,10 +60,12 @@ class RegisterView(APIView):
             last_name=data["last_name"],
             phone=data.get("phone", ""),
             display_name=f"{data['first_name']} {data['last_name']}".strip(),
+            is_active=False,
+            approval_status="pending",
         )
         member, _ = Role.objects.get_or_create(code="member", defaults={"name": "Member"})
         UserRole.objects.get_or_create(user=user, role=member)
-        return Response(issue_otp(user, "register"), status=status.HTTP_201_CREATED)
+        return Response({"detail": "Registration submitted. An administrator must approve your account before you can sign in."}, status=status.HTTP_201_CREATED)
 
 
 class LoginView(APIView):
@@ -81,6 +83,8 @@ class LoginView(APIView):
             try:
                 candidate = User.objects.get(email__iexact=email)
                 if not candidate.is_active:
+                    if candidate.approval_status == "pending":
+                        return Response({"detail": "Your account is awaiting administrator approval."}, status=status.HTTP_403_FORBIDDEN)
                     return Response(
                         {"detail": "Account is suspended. Contact support."},
                         status=status.HTTP_401_UNAUTHORIZED,

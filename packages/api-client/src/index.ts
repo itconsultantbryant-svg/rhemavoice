@@ -117,7 +117,7 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
         last_name: string;
         phone?: string;
       }) =>
-        request<{ otp_required: boolean; challenge_id: string; message: string }>(
+        request<{ otp_required?: boolean; challenge_id?: string; message?: string; detail?: string }>(
           "/auth/register/",
           { method: "POST", body: JSON.stringify(payload) },
           false
@@ -492,7 +492,7 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
     },
     admin: {
       users: () => request<User[]>("/admin/users/"),
-      updateUser: (id: string, payload: { is_active?: boolean; role_codes?: string[] }) =>
+      updateUser: (id: string, payload: { is_active?: boolean; approval_status?: "approved" | "rejected"; role_codes?: string[] }) =>
         request<User>(`/admin/users/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
       roles: () => request<Array<{ id: string; name: string; code?: string; permissions: string[] }>>("/admin/roles/"),
       toggles: () => request<Array<{ key: string; enabled: boolean; label: string }>>("/admin/feature-toggles/"),
