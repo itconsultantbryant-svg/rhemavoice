@@ -2,7 +2,7 @@
 
 import { FadeIn } from "@rhemavoice/ui";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { ChayilLogo } from "@/components/Brand";
@@ -67,6 +67,7 @@ export default function AcademyTenantPage() {
   const { code } = useParams<{ code: string }>();
   const { api, user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [dash, setDash] = useState<Dash | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("dashboard");
@@ -76,6 +77,14 @@ export default function AcademyTenantPage() {
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  // Chayil's primary entry point is its role-aware command center. The
+  // established student learning screen remains available with ?view=learning.
+  useEffect(() => {
+    if (!loading && user && code === "chayil" && !searchParams.has("view")) {
+      router.replace(`/academy/${code}/cci`);
+    }
+  }, [code, loading, router, searchParams, user]);
 
   async function load() {
     if (!user || !code) return;
@@ -107,6 +116,16 @@ export default function AcademyTenantPage() {
   }
 
   if (!user) return null;
+
+  if (code === "chayil" && !searchParams.has("view")) {
+    return (
+      <AppShell>
+        <main className="grid min-h-screen place-items-center text-sm text-[var(--rv-ink-muted)]">
+          Opening Chayil workspace…
+        </main>
+      </AppShell>
+    );
+  }
 
   if (error) {
     return (
