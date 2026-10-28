@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BookOpen, BriefcaseBusiness, ChartNoAxesCombined, ClipboardCheck, GraduationCap, HeartHandshake, ShieldCheck, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ChayilWorkspace } from "@/components/ChayilWorkspace";
 import { useAuth } from "@/lib/auth";
 
@@ -28,6 +28,7 @@ const ROLE_STYLE: Record<WorkspaceRole, { label: string; description: string; ic
 
 export function CCICommandCenterPage({ expectedRole }: { expectedRole?: WorkspaceRole } = {}) {
   const { code } = useParams<{ code: string }>();
+  const router = useRouter();
   const { api } = useAuth();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [error, setError] = useState("");
@@ -36,6 +37,7 @@ export function CCICommandCenterPage({ expectedRole }: { expectedRole?: Workspac
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load the Chayil workspace."); }
   }, [api, code]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (workspace && !expectedRole) router.replace(`/academy/${code}/cci/${workspace.role}`); }, [code, expectedRole, router, workspace]);
 
   const metrics = useMemo(() => workspace ? [
     { label: "Open tasks", value: workspace.metrics.open_tasks, icon: ClipboardCheck, visible: true },

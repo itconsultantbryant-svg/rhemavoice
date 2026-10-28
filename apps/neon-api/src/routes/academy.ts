@@ -1126,6 +1126,37 @@ academyRoutes.get("/institutions/:code/cci/members/", async (c) => {
   return c.json([...members.values()]);
 });
 
+// CCI never creates a second RhemaVoice identity. Management and
+// Administration can enroll an already-approved RhemaVoice user into CCI.
+academyRoutes.post("/institutions/:code/cci/members/", async (c) => {
+  const auth = await requireUser(c);
+  if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const roleManager = ctx && (auth.user.is_superuser || ctx.roles.some((role) => CCI_ROLE_MANAGERS.has(role)));
+  if (!roleManager) return respond(c, forbidden("CCI member-management permission is required."));
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const membershipRole = String(body.membership_role ?? "student");
+  const cciRole = String(body.cci_role ?? "student");
+  if (!email || !email.includes("@")) return respond(c, fieldError({ email: ["Enter a valid RhemaVoice email address."] }));
+  if (!["student", "mentor", "instructor", "staff", "academy_admin"].includes(membershipRole)) return respond(c, fieldError({ membership_role: ["Enter a valid academy role."] }));
+  if (!CCI_ROLES.has(cciRole)) return respond(c, fieldError({ cci_role: ["Enter a valid CCI role."] }));
+  if (cciRole === "founder" && !auth.user.is_superuser && !ctx!.roles.includes("founder")) return respond(c, forbidden("Only a Founder or Platform/System Administrator can assign the Founder role."));
+  const user = await one<{ id: string; email: string }>(`select id, email from users_user where lower(email) = $1 and is_active = true and approval_status = 'approved'`, [email]);
+  if (!user) return respond(c, detail("This user must first have an approved RhemaVoice account."));
+  const membership = await one<{ id: string }>(`select id from academy_academymembership where institution_id = $1 and user_id = $2`, [ctx!.institution.id, user.id]);
+  if (membership) {
+    await query(`update academy_academymembership set role = $1, is_active = true where id = $2`, [membershipRole, membership.id]);
+  } else {
+    await query(`insert into academy_academymembership (id, institution_id, user_id, role, current_week, overall_progress, attendance_pct, is_active, joined_at) values ($1,$2,$3,$4,1,0,0,true,now())`, [uuid(), ctx!.institution.id, user.id, membershipRole]);
+  }
+  const assignment = await one<{ id: string }>(`select id from academy_cciroleassignment where institution_id = $1 and user_id = $2 and role = $3`, [ctx!.institution.id, user.id, cciRole]);
+  if (assignment) await query(`update academy_cciroleassignment set is_active = true, assigned_by_id = $1 where id = $2`, [auth.user.id, assignment.id]);
+  else await query(`insert into academy_cciroleassignment (id, institution_id, user_id, role, is_active, assigned_by_id, assigned_at) values ($1,$2,$3,$4,true,$5,now())`, [uuid(), ctx!.institution.id, user.id, cciRole, auth.user.id]);
+  await cciAudit(ctx!.institution.id, auth.user.id, "cci.member.enrolled", "user", user.id, { email, membership_role: membershipRole, cci_role: cciRole });
+  return c.json({ user_id: user.id, email: user.email, membership_role: membershipRole, cci_role: cciRole }, 201);
+});
+
 academyRoutes.post("/institutions/:code/cci/members/:userId/roles/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);

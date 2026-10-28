@@ -231,6 +231,8 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
           method: "POST", body: JSON.stringify(payload),
         }),
       cciMembers: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/members/`),
+      createCciMember: (code: string, payload: { email: string; membership_role: string; cci_role: string }) =>
+        request(`/academy/institutions/${code}/cci/members/`, { method: "POST", body: JSON.stringify(payload) }),
       assignCciRole: (code: string, userId: string, role: string) =>
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/members/${userId}/roles/`, {
           method: "POST", body: JSON.stringify({ role }),
