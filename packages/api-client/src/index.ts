@@ -160,6 +160,10 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
           body: JSON.stringify(data),
         }),
     },
+    content: {
+      list: (module?: string) => request<Array<Record<string, unknown>>>(`/content/${module ? `?module=${encodeURIComponent(module)}` : ""}`, {}, false),
+      get: (slug: string) => request<Record<string, unknown>>(`/content/${slug}/`, {}, false),
+    },
     dashboard: {
       get: () => request<DashboardPayload>("/dashboard/"),
     },
@@ -502,6 +506,18 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
       settings: () => request<Array<{ key: string; value: unknown }>>("/admin/settings/"),
       updateSetting: (key: string, value: unknown) =>
         request("/admin/settings/", { method: "PUT", body: JSON.stringify({ key, value }) }),
+      modules: () => request<Array<Record<string, unknown>>>("/admin/modules/"),
+      updateModule: (code: string, payload: { enabled: boolean }) =>
+        request(`/admin/modules/${code}/`, { method: "PATCH", body: JSON.stringify(payload) }),
+      content: () => request<Array<Record<string, unknown>>>("/admin/content/"),
+      createContent: (payload: Record<string, unknown>) =>
+        request("/admin/content/", { method: "POST", body: JSON.stringify(payload) }),
+      updateContent: (id: string, payload: Record<string, unknown>) =>
+        request(`/admin/content/${id}/`, { method: "PATCH", body: JSON.stringify(payload) }),
+      deleteContent: (id: string) => request(`/admin/content/${id}/`, { method: "DELETE" }),
+      integrations: () => request<Array<{ key: string; config: Record<string, unknown> }>>("/admin/integrations/"),
+      updateIntegration: (key: string, config: Record<string, unknown>) =>
+        request(`/admin/integrations/${key}/`, { method: "PUT", body: JSON.stringify(config) }),
       jobs: () => request<Array<Record<string, unknown>>>("/admin/jobs/"),
       jobAction: (id: string, action: "approve" | "reject") =>
         request(`/admin/jobs/${id}/`, { method: "POST", body: JSON.stringify({ action }) }),

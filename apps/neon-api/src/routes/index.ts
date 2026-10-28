@@ -24,6 +24,7 @@ import { opportunitiesRoutes } from "./opportunities";
 import { transportRoutes } from "./transport";
 import { ticketingRoutes } from "./ticketing";
 import { airRoutes } from "./air";
+import { contentRoutes } from "./content";
 
 export const api = new Hono();
 
@@ -45,6 +46,7 @@ mount("/auth", authRoutes);
 mount("/modules", modulesRoutes);
 mount("/dashboard", dashboardRoutes);
 mount("/admin", adminRoutes);
+mount("/content", contentRoutes);
 mount("/academy", academyRoutes);
 mount("/streaming", streamingRoutes);
 mount("/rooms", roomsRoutes);

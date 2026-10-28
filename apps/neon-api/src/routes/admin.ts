@@ -73,6 +73,15 @@ type ConversationRow = {
   updated_at: Date;
 };
 
+type ContentRow = {
+  id: string; module: string; slug: string; title: string; summary: string; body: unknown;
+  media_url: string; status: string; published_at: Date | null; created_at: Date; updated_at: Date;
+};
+
+type ModuleAdminRow = {
+  code: string; name: string; description: string; route: string; enabled: boolean; sort_order: number;
+};
+
 const USER_COLUMNS = `
   id, email, phone, first_name, last_name, display_name, avatar_url,
   theme_preference, is_active, date_joined`;
@@ -136,6 +145,10 @@ function pyBool(value: unknown): boolean {
   if (typeof value === "string") return value.length > 0;
   if (Array.isArray(value)) return value.length > 0;
   return true;
+}
+
+function serializeContent(row: ContentRow) {
+  return { ...row, body: json(row.body) ?? {}, published_at: iso(row.published_at), created_at: iso(row.created_at) ?? "", updated_at: iso(row.updated_at) ?? "" };
 }
 
 adminRoutes.get("/users/", async (c) => {
@@ -311,6 +324,102 @@ adminRoutes.put("/settings/", async (c) => {
   await audit(auth.user.id, `system_setting.${key}`);
 
   return c.json({ key: row?.key ?? key, value: json(row?.value) });
+});
+
+adminRoutes.get("/modules/", async (c) => {
+  const auth = await adminAuth(c);
+  if (!auth.ok) return auth.response;
+  const rows = await query<ModuleAdminRow>(`select code, name, description, route, enabled, sort_order from modules_moduledefinition order by sort_order, name`);
+  return c.json(rows.map((row) => ({ ...row, enabled: bool(row.enabled) })));
+});
+
+adminRoutes.patch("/modules/:code/", async (c) => {
+  const auth = await adminAuth(c);
+  if (!auth.ok) return auth.response;
+  const code = c.req.param("code");
+  const row = await one<ModuleAdminRow>(`select code, name, description, route, enabled, sort_order from modules_moduledefinition where code = $1`, [code]);
+  if (!row) return respond(c, notFound());
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const enabled = "enabled" in body ? pyBool(body.enabled) : bool(row.enabled);
+  await query(`update modules_moduledefinition set enabled = $1 where code = $2`, [enabled, code]);
+  await audit(auth.user.id, `module.${enabled ? "enable" : "disable"}:${code}`);
+  return c.json({ ...row, enabled });
+});
+
+adminRoutes.get("/content/", async (c) => {
+  const auth = await adminAuth(c);
+  if (!auth.ok) return auth.response;
+  const rows = await query<ContentRow>(`select id, module, slug, title, summary, body, media_url, status, published_at, created_at, updated_at from administration_contententry order by updated_at desc limit 200`);
+  return c.json(rows.map(serializeContent));
+});
+
+adminRoutes.post("/content/", async (c) => {
+  const auth = await adminAuth(c);
+  if (!auth.ok) return auth.response;
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const slug = String(body.slug ?? "").trim().toLowerCase();
+  const title = String(body.title ?? "").trim();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return respond(c, detail("slug must use lowercase letters, numbers, and hyphens"));
+  if (!title) return respond(c, detail("title required"));
+  const status = ["draft", "published", "archived"].includes(String(body.status)) ? String(body.status) : "draft";
+  const row = await one<ContentRow>(
+    `insert into administration_contententry (id, module, slug, title, summary, body, media_url, status, published_at, created_at, updated_at)
+     values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,case when $8 = 'published' then now() else null end,now(),now())
+     returning id, module, slug, title, summary, body, media_url, status, published_at, created_at, updated_at`,
+    [uuid(), String(body.module ?? "platform"), slug, title, String(body.summary ?? ""), JSON.stringify(body.body ?? {}), String(body.media_url ?? ""), status],
+  );
+  await audit(auth.user.id, `content.create:${slug}`, { module: body.module ?? "platform", status });
+  return c.json(serializeContent(row!));
+});
+
+adminRoutes.patch("/content/:id/", async (c) => {
+  const auth = await adminAuth(c);
+  if (!auth.ok) return auth.response;
+  const id = c.req.param("id");
+  if (!UUID_RE.test(id)) return respond(c, notFound());
+  const current = await one<ContentRow>(`select id, module, slug, title, summary, body, media_url, status, published_at, created_at, updated_at from administration_contententry where id = $1`, [id]);
+  if (!current) return respond(c, notFound());
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const status = "status" in body && ["draft", "published", "archived"].includes(String(body.status)) ? String(body.status) : current.status;
+  const title = "title" in body ? String(body.title ?? "").trim() : current.title;
+  if (!title) return respond(c, detail("title required"));
+  const row = await one<ContentRow>(
+    `update administration_contententry set module=$1, title=$2, summary=$3, body=$4::jsonb, media_url=$5, status=$6,
+       published_at=case when $6 = 'published' and published_at is null then now() when $6 <> 'published' then null else published_at end, updated_at=now()
+     where id=$7 returning id, module, slug, title, summary, body, media_url, status, published_at, created_at, updated_at`,
+    ["module" in body ? String(body.module ?? "platform") : current.module, title, "summary" in body ? String(body.summary ?? "") : current.summary, JSON.stringify("body" in body ? body.body ?? {} : json(current.body) ?? {}), "media_url" in body ? String(body.media_url ?? "") : current.media_url, status, id],
+  );
+  await audit(auth.user.id, `content.update:${current.slug}`, { status });
+  return c.json(serializeContent(row!));
+});
+
+adminRoutes.delete("/content/:id/", async (c) => {
+  const auth = await adminAuth(c);
+  if (!auth.ok) return auth.response;
+  const id = c.req.param("id");
+  if (!UUID_RE.test(id)) return respond(c, notFound());
+  const item = await one<{ slug: string }>(`delete from administration_contententry where id = $1 returning slug`, [id]);
+  if (!item) return respond(c, notFound());
+  await audit(auth.user.id, `content.delete:${item.slug}`);
+  return c.json({ detail: "Deleted" });
+});
+
+adminRoutes.get("/integrations/", async (c) => {
+  const auth = await adminAuth(c);
+  if (!auth.ok) return auth.response;
+  const rows = await query<{ key: string; value: unknown }>(`select key, value from administration_systemsetting where key like 'integration.%' order by key`);
+  return c.json(rows.map((row) => ({ key: row.key.replace(/^integration\./, ""), config: json(row.value) ?? {} })));
+});
+
+adminRoutes.put("/integrations/:key/", async (c) => {
+  const auth = await adminAuth(c);
+  if (!auth.ok) return auth.response;
+  const key = c.req.param("key");
+  if (!/^[a-z0-9_-]+$/i.test(key)) return respond(c, detail("Invalid integration key"));
+  const config = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  await query(`insert into administration_systemsetting (id, key, value) values ($1,$2,$3::jsonb) on conflict (key) do update set value=$3::jsonb`, [uuid(), `integration.${key}`, JSON.stringify(config)]);
+  await audit(auth.user.id, `integration.configure:${key}`, { enabled: pyBool(config.enabled) });
+  return c.json({ key, config });
 });
 
 adminRoutes.get("/jobs/", async (c) => {

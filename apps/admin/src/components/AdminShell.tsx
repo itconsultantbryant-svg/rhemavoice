@@ -12,6 +12,8 @@ const NAV = [
   { href: "/roles", label: "Roles" },
   { href: "/toggles", label: "Feature Toggles" },
   { href: "/audit", label: "Audit Logs" },
+  { href: "/content", label: "Content" },
+  { href: "/integrations", label: "Integrations" },
 ];
 
 const MODULE_NAV = [

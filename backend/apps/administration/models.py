@@ -39,3 +39,27 @@ class SystemSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class ContentEntry(models.Model):
+    """Platform content managed from the super-admin console."""
+
+    STATUS = [("draft", "Draft"), ("published", "Published"), ("archived", "Archived")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    module = models.CharField(max_length=64, blank=True, default="platform")
+    slug = models.SlugField(max_length=120, unique=True)
+    title = models.CharField(max_length=200)
+    summary = models.TextField(blank=True, default="")
+    body = models.JSONField(default=dict, blank=True)
+    media_url = models.URLField(blank=True, default="")
+    status = models.CharField(max_length=16, choices=STATUS, default="draft")
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return self.title
