@@ -10,8 +10,8 @@ import { useAuth } from "@/lib/auth";
 export default function LoginPage() {
   const { api } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("demo@rhemavoice.app");
-  const [password, setPassword] = useState("Demo123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 

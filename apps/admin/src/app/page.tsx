@@ -10,8 +10,8 @@ import { useAuth } from "@/lib/auth";
 export default function AdminLoginPage() {
   const { user, api, setSession, loading } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("admin@rhemavoice.app");
-  const [password, setPassword] = useState("Admin123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("123456");
   const [challenge, setChallenge] = useState("");
   const [step, setStep] = useState<"login" | "otp">("login");
