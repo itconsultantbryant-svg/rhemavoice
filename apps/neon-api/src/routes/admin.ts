@@ -364,7 +364,7 @@ adminRoutes.post("/content/", async (c) => {
   const status = ["draft", "published", "archived"].includes(String(body.status)) ? String(body.status) : "draft";
   const row = await one<ContentRow>(
     `insert into administration_contententry (id, module, slug, title, summary, body, media_url, status, published_at, created_at, updated_at)
-     values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,case when $8 = 'published' then now() else null end,now(),now())
+     values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,case when $8::varchar = 'published' then now() else null end,now(),now())
      returning id, module, slug, title, summary, body, media_url, status, published_at, created_at, updated_at`,
     [uuid(), String(body.module ?? "platform"), slug, title, String(body.summary ?? ""), JSON.stringify(body.body ?? {}), String(body.media_url ?? ""), status],
   );
@@ -385,7 +385,7 @@ adminRoutes.patch("/content/:id/", async (c) => {
   if (!title) return respond(c, detail("title required"));
   const row = await one<ContentRow>(
     `update administration_contententry set module=$1, title=$2, summary=$3, body=$4::jsonb, media_url=$5, status=$6,
-       published_at=case when $6 = 'published' and published_at is null then now() when $6 <> 'published' then null else published_at end, updated_at=now()
+       published_at=case when $6::varchar = 'published' and published_at is null then now() when $6::varchar <> 'published' then null else published_at end, updated_at=now()
      where id=$7 returning id, module, slug, title, summary, body, media_url, status, published_at, created_at, updated_at`,
     ["module" in body ? String(body.module ?? "platform") : current.module, title, "summary" in body ? String(body.summary ?? "") : current.summary, JSON.stringify("body" in body ? body.body ?? {} : json(current.body) ?? {}), "media_url" in body ? String(body.media_url ?? "") : current.media_url, status, id],
   );
