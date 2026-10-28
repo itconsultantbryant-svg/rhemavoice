@@ -412,10 +412,40 @@ class LiveClass(models.Model):
     status = models.CharField(max_length=20, choices=STATUS, default="scheduled")
     viewer_count = models.PositiveIntegerField(default=0)
     week_number = models.PositiveIntegerField(default=1)
+    course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.SET_NULL, related_name="live_classes")
+    host = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="hosted_live_classes")
+    meeting_url = models.URLField(blank=True, default="")
 
     class Meta:
         ordering = ["-starts_at"]
         verbose_name_plural = "live classes"
+
+
+class CCICourseAssignment(models.Model):
+    ROLE = [("teacher", "Teacher"), ("mentor", "Mentor")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="cci_assignments")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cci_course_assignments")
+    role = models.CharField(max_length=16, choices=ROLE)
+    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="assigned_cci_courses")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["course", "user", "role"], name="unique_cci_course_assignment")]
+
+
+class CCILiveClassParticipant(models.Model):
+    ROLE = [("student", "Student"), ("teacher", "Teacher"), ("mentor", "Mentor")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    live_class = models.ForeignKey(LiveClass, on_delete=models.CASCADE, related_name="cci_participants")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cci_live_classes")
+    role = models.CharField(max_length=16, choices=ROLE, default="student")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["live_class", "user"], name="unique_cci_live_class_participant")]
 
 
 class Assignment(models.Model):

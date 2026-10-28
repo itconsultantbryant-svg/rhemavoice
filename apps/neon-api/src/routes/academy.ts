@@ -113,6 +113,9 @@ type LiveClassRow = {
   status: string;
   viewer_count: number;
   week_number: number;
+  meeting_url?: string;
+  course_id?: string | null;
+  host_id?: string | null;
 };
 
 type EventRow = {
@@ -939,6 +942,10 @@ async function cciAudit(institutionId: string, actorId: string, action: string, 
   );
 }
 
+function canManageCCIProgram(ctx: CCIContext | null, user: { is_superuser: boolean }) {
+  return Boolean(ctx && (user.is_superuser || ctx.roles.some((role) => CCI_ROLE_MANAGERS.has(role))));
+}
+
 function serializeCCITask(row: { id: string; title: string; description: string; status: string; due_at: Date | null; assigned_to: string | null; created_at: Date; updated_at: Date }) {
   return { ...row, due_at: iso(row.due_at), created_at: iso(row.created_at), updated_at: iso(row.updated_at) };
 }
@@ -1002,12 +1009,14 @@ academyRoutes.get("/institutions/:code/cci/workspace/", async (c) => {
       { label: "People & roles", href: "members", description: "Academy membership and CCI responsibilities" },
       { label: "Resources", href: "resources", description: "Resource workflow and approvals" },
       { label: "Calendar", href: "calendar", description: "Program schedule and events" },
+      { label: "Courses & live classes", href: "learning", description: "Publish courses, assign people, and run online sessions" },
     ],
     administrator: [
       { label: "People & roles", href: "members", description: "Maintain active academy roles" },
       { label: "Resources", href: "resources", description: "Manage approval-ready resources" },
       { label: "Calendar", href: "calendar", description: "Coordinate CCI events" },
       { label: "Community moderation", href: "bonding", description: "Review participant posts" },
+      { label: "Courses & live classes", href: "learning", description: "Publish courses, assign people, and run online sessions" },
     ],
     teacher: [
       { label: "Gradebook", href: "gradebook", description: "Review and grade submitted work" },
@@ -1155,6 +1164,92 @@ academyRoutes.post("/institutions/:code/cci/members/", async (c) => {
   else await query(`insert into academy_cciroleassignment (id, institution_id, user_id, role, is_active, assigned_by_id, assigned_at) values ($1,$2,$3,$4,true,$5,now())`, [uuid(), ctx!.institution.id, user.id, cciRole, auth.user.id]);
   await cciAudit(ctx!.institution.id, auth.user.id, "cci.member.enrolled", "user", user.id, { email, membership_role: membershipRole, cci_role: cciRole });
   return c.json({ user_id: user.id, email: user.email, membership_role: membershipRole, cci_role: cciRole }, 201);
+});
+
+academyRoutes.get("/institutions/:code/cci/courses/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const staff = ctx.isStaff;
+  const rows = await query<{ id: string; title: string; summary: string; level: string; week_number: number; duration_hours: number; is_published: boolean; students: number; staff: number }>(
+    `select c.id, c.title, c.summary, c.level, c.week_number, c.duration_hours, c.is_published,
+      (select count(*)::int from academy_enrollment e where e.course_id=c.id) as students,
+      (select count(*)::int from academy_ccicourseassignment a where a.course_id=c.id) as staff
+     from academy_course c where c.institution_id=$1 ${staff ? "" : "and c.is_published=true"} order by c.week_number, c.title`, [ctx.institution.id]);
+  return c.json(rows);
+});
+
+academyRoutes.post("/institutions/:code/cci/courses/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user)) return respond(c, forbidden("CCI management or administration permission is required."));
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const title = String(body.title ?? "").trim(); if (!title || title.length > 200) return respond(c, fieldError({ title: ["Enter a course title of 200 characters or fewer."] }));
+  const week = Math.max(1, Number(body.week_number ?? 1) || 1); const hours = Math.max(1, Number(body.duration_hours ?? 1) || 1);
+  const id = uuid();
+  await query(`insert into academy_course (id, institution_id, title, summary, level, week_number, duration_hours, xp_reward, is_published, is_live_eligible, created_at) values ($1,$2,$3,$4,$5,$6,$7,100,$8,$9,now())`, [id, ctx!.institution.id, title, String(body.summary ?? ""), String(body.level ?? "beginner"), week, hours, body.is_published !== false, body.is_live_eligible === true]);
+  await cciAudit(ctx!.institution.id, auth.user.id, "cci.course.created", "course", id, { title });
+  return c.json({ id, title, week_number: week, is_published: body.is_published !== false }, 201);
+});
+
+academyRoutes.post("/institutions/:code/cci/courses/:id/assignments/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user) || !UUID_RE.test(c.req.param("id"))) return respond(c, forbidden("CCI management or administration permission is required."));
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const userId = String(body.user_id ?? ""); const role = String(body.role ?? "");
+  if (!UUID_RE.test(userId) || !["teacher", "mentor"].includes(role)) return respond(c, fieldError({ role: ["Choose a teacher or mentor."] }));
+  const course = await one<{ id: string }>(`select id from academy_course where id=$1 and institution_id=$2`, [c.req.param("id"), ctx!.institution.id]);
+  const member = await one<{ id: string }>(`select id from academy_academymembership where institution_id=$1 and user_id=$2 and is_active=true`, [ctx!.institution.id, userId]);
+  if (!course || !member) return respond(c, detail("Course and assignee must be active CCI records.", 404));
+  await query(`insert into academy_ccicourseassignment (id, course_id, user_id, role, assigned_by_id, created_at) values ($1,$2,$3,$4,$5,now()) on conflict (course_id,user_id,role) do nothing`, [uuid(), course.id, userId, role, auth.user.id]);
+  await cciAudit(ctx!.institution.id, auth.user.id, "cci.course.staff_assigned", "course", course.id, { user_id: userId, role });
+  return c.json({ course_id: course.id, user_id: userId, role }, 201);
+});
+
+academyRoutes.post("/institutions/:code/cci/courses/:id/students/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user) || !UUID_RE.test(c.req.param("id"))) return respond(c, forbidden("CCI management or administration permission is required."));
+  const userId = String(((await c.req.json().catch(() => ({}))) as Record<string, unknown>).user_id ?? "");
+  if (!UUID_RE.test(userId)) return respond(c, fieldError({ user_id: ["Enter a valid student."] }));
+  const course = await one<{ id: string }>(`select id from academy_course where id=$1 and institution_id=$2`, [c.req.param("id"), ctx!.institution.id]);
+  const student = await one<{ id: string }>(`select m.id from academy_academymembership m join academy_cciroleassignment r on r.institution_id=m.institution_id and r.user_id=m.user_id and r.role='student' and r.is_active=true where m.institution_id=$1 and m.user_id=$2 and m.is_active=true`, [ctx!.institution.id, userId]);
+  if (!course || !student) return respond(c, detail("Course and student must be active CCI records.", 404));
+  await query(`insert into academy_enrollment (id,user_id,course_id,progress,xp_earned,completed,created_at,updated_at) values ($1,$2,$3,0,0,false,now(),now()) on conflict (user_id,course_id) do nothing`, [uuid(), userId, course.id]);
+  await cciAudit(ctx!.institution.id, auth.user.id, "cci.course.student_enrolled", "course", course.id, { user_id: userId });
+  return c.json({ course_id: course.id, user_id: userId }, 201);
+});
+
+academyRoutes.get("/institutions/:code/cci/live-classes/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const rows = await query<LiveClassRow>(`select l.id,l.title,l.instructor_name,l.starts_at,l.status,l.viewer_count,l.week_number,l.meeting_url,l.course_id,l.host_id from academy_liveclass l where l.institution_id=$1 ${ctx.isStaff ? "" : "and exists (select 1 from academy_cciliveclassparticipant p where p.live_class_id=l.id and p.user_id=$2)"} order by l.starts_at desc`, ctx.isStaff ? [ctx.institution.id] : [ctx.institution.id, auth.user.id]);
+  return c.json(rows.map((row) => ({ ...serializeLiveClass(row), meeting_url: row.meeting_url ?? "", course_id: row.course_id ?? null, host_id: row.host_id ?? null, join_available: row.status === "live" && /^https:\/\//.test(row.meeting_url ?? "") })));
+});
+
+academyRoutes.post("/institutions/:code/cci/live-classes/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user)) return respond(c, forbidden("CCI management or administration permission is required."));
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const title=String(body.title??"").trim(); const meetingUrl=String(body.meeting_url??"").trim(); const hostId=String(body.host_id??""); const courseId=body.course_id ? String(body.course_id) : null;
+  const startsAt=body.starts_at ? new Date(String(body.starts_at)) : null;
+  if (!title || !startsAt || Number.isNaN(startsAt.getTime()) || !/^https:\/\//.test(meetingUrl) || !UUID_RE.test(hostId)) return respond(c, detail("Title, start time, approved HTTPS meeting URL, and host are required."));
+  if (courseId && !UUID_RE.test(courseId)) return respond(c, fieldError({ course_id: ["Enter a valid course."] }));
+  const host = await one<{ id:string; name:string }>(`select u.id, coalesce(nullif(u.display_name,''),u.email) as name from users_user u join academy_academymembership m on m.user_id=u.id where u.id=$1 and m.institution_id=$2 and m.is_active=true`, [hostId,ctx!.institution.id]);
+  const course = courseId ? await one<{id:string}>(`select id from academy_course where id=$1 and institution_id=$2`,[courseId,ctx!.institution.id]) : { id: null };
+  if (!host || !course) return respond(c, detail("Host and course must be active CCI records.", 404));
+  const id=uuid(); await query(`insert into academy_liveclass (id,institution_id,title,instructor_name,starts_at,status,viewer_count,week_number,course_id,host_id,meeting_url) values ($1,$2,$3,$4,$5,'scheduled',0,$6,$7,$8,$9)`,[id,ctx!.institution.id,title,host.name,startsAt,Math.max(1,Number(body.week_number??1)||1),course.id,host.id,meetingUrl]);
+  await cciAudit(ctx!.institution.id,auth.user.id,"cci.live_class.created","live_class",id,{host_id:host.id,course_id:course.id}); return c.json({id,title,status:"scheduled"},201);
+});
+
+academyRoutes.post("/institutions/:code/cci/live-classes/:id/participants/", async (c) => {
+  const auth=await requireUser(c); if(!auth.ok)return respond(c,auth.response); const ctx=await cciContext(c.req.param("code"),auth.user); if(!canManageCCIProgram(ctx,auth.user)||!UUID_RE.test(c.req.param("id")))return respond(c,forbidden("CCI management or administration permission is required."));
+  const body=(await c.req.json().catch(()=>({}))) as Record<string,unknown>; const userId=String(body.user_id??""); const role=String(body.role??"student"); if(!UUID_RE.test(userId)||!["student","teacher","mentor"].includes(role))return respond(c,detail("Choose an active participant role."));
+  const live=await one<{id:string}>(`select id from academy_liveclass where id=$1 and institution_id=$2`,[c.req.param("id"),ctx!.institution.id]); const member=await one<{id:string}>(`select id from academy_academymembership where institution_id=$1 and user_id=$2 and is_active=true`,[ctx!.institution.id,userId]); if(!live||!member)return respond(c,notFound());
+  await query(`insert into academy_cciliveclassparticipant (id,live_class_id,user_id,role,created_at) values ($1,$2,$3,$4,now()) on conflict (live_class_id,user_id) do update set role=excluded.role`,[uuid(),live.id,userId,role]); await cciAudit(ctx!.institution.id,auth.user.id,"cci.live_class.participant_assigned","live_class",live.id,{user_id:userId,role}); return c.json({live_class_id:live.id,user_id:userId,role},201);
+});
+
+academyRoutes.patch("/institutions/:code/cci/live-classes/:id/", async (c) => {
+  const auth=await requireUser(c); if(!auth.ok)return respond(c,auth.response); const ctx=await cciContext(c.req.param("code"),auth.user); const id=c.req.param("id"); if(!ctx||!UUID_RE.test(id))return respond(c,notFound());
+  const live=await one<{id:string;host_id:string|null}>(`select id,host_id from academy_liveclass where id=$1 and institution_id=$2`,[id,ctx.institution.id]); if(!live)return respond(c,notFound());
+  if(!canManageCCIProgram(ctx,auth.user)&&live.host_id!==auth.user.id)return respond(c,forbidden("Only CCI management, administration, or the assigned host can control this class."));
+  const status=String(((await c.req.json().catch(()=>({}))) as Record<string,unknown>).status??""); if(!["scheduled","live","ended"].includes(status))return respond(c,fieldError({status:["Choose scheduled, live, or ended."]}));
+  await query(`update academy_liveclass set status=$1 where id=$2`,[status,id]); await cciAudit(ctx.institution.id,auth.user.id,`cci.live_class.${status}`,"live_class",id); return c.json({id,status});
 });
 
 academyRoutes.post("/institutions/:code/cci/members/:userId/roles/", async (c) => {

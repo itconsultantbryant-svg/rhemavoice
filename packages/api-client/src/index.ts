@@ -233,6 +233,14 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
       cciMembers: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/members/`),
       createCciMember: (code: string, payload: { email: string; membership_role: string; cci_role: string }) =>
         request(`/academy/institutions/${code}/cci/members/`, { method: "POST", body: JSON.stringify(payload) }),
+      cciCourses: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/courses/`),
+      createCciCourse: (code: string, payload: Record<string, unknown>) => request(`/academy/institutions/${code}/cci/courses/`, { method: "POST", body: JSON.stringify(payload) }),
+      assignCciCourseStaff: (code: string, courseId: string, userId: string, role: "teacher" | "mentor") => request(`/academy/institutions/${code}/cci/courses/${courseId}/assignments/`, { method: "POST", body: JSON.stringify({ user_id: userId, role }) }),
+      enrollCciCourseStudent: (code: string, courseId: string, userId: string) => request(`/academy/institutions/${code}/cci/courses/${courseId}/students/`, { method: "POST", body: JSON.stringify({ user_id: userId }) }),
+      cciLiveClasses: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/live-classes/`),
+      createCciLiveClass: (code: string, payload: Record<string, unknown>) => request(`/academy/institutions/${code}/cci/live-classes/`, { method: "POST", body: JSON.stringify(payload) }),
+      assignCciLiveClassParticipant: (code: string, classId: string, userId: string, role: "student" | "teacher" | "mentor") => request(`/academy/institutions/${code}/cci/live-classes/${classId}/participants/`, { method: "POST", body: JSON.stringify({ user_id: userId, role }) }),
+      updateCciLiveClass: (code: string, classId: string, status: "scheduled" | "live" | "ended") => request(`/academy/institutions/${code}/cci/live-classes/${classId}/`, { method: "PATCH", body: JSON.stringify({ status }) }),
       assignCciRole: (code: string, userId: string, role: string) =>
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/members/${userId}/roles/`, {
           method: "POST", body: JSON.stringify({ role }),
