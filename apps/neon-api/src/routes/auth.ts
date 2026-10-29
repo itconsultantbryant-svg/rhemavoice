@@ -52,7 +52,7 @@ authRoutes.post("/register/", async (c) => {
   await query(
     `insert into users_user (id, password, is_superuser, username, first_name, last_name, email,
                               is_staff, is_active, date_joined, phone, display_name, avatar_url, theme_preference, approval_status)
-      values ($1, $2, false, $3, $4, $5, $3, false, false, now(), $6, $7, '', 'system', 'pending')`,
+      values ($1, $2, false, $3, $4, $5, $3, false, true, now(), $6, $7, '', 'system', 'approved')`,
     [id, hashPassword(password), lower, firstName, lastName, phone, `${firstName} ${lastName}`.trim()],
   );
 
@@ -65,7 +65,9 @@ authRoutes.post("/register/", async (c) => {
     );
   }
 
-  return c.json({ detail: "Registration submitted. An administrator must approve your account before you can sign in." }, 201);
+  // A RhemaVoice account is self-service. CCI access is granted separately by
+  // a CCI administrator and is never inferred from public registration.
+  return c.json({ ...(await issueOtp(id, "register")), detail: "Account created. Enter the OTP to verify and sign in." }, 201);
 });
 
 authRoutes.post("/login/", async (c) => {

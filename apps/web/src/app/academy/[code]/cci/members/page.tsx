@@ -7,7 +7,7 @@ import { ChayilWorkspace } from "@/components/ChayilWorkspace";
 import { useAuth } from "@/lib/auth";
 
 type Member = { id: string; name: string; email: string; membership_role: string; cci_roles: string[] };
-const ROLES = ["founder", "program_director", "curriculum_director", "administration", "formation_coordinator", "technology_director", "communications_director", "instructor", "mentor", "student"];
+const ROLES = ["administrator", "teacher", "advisor", "student"];
 
 export default function CCIMembersPage() {
   const { code } = useParams<{ code: string }>(); const { api } = useAuth();

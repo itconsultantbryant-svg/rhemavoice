@@ -14,8 +14,10 @@ from .models import (
     AssignmentSubmission,
     Certificate,
     Course,
+    CourseContent,
     CourseCategory,
     Enrollment,
+    FileAttachment,
     Institution,
     LearningResource,
     Lesson,
@@ -36,6 +38,8 @@ admin.site.register(CCIAdmissionApplication)
 admin.site.register(MentorAssignment)
 admin.site.register(CourseCategory)
 admin.site.register(Course)
+admin.site.register(CourseContent)
+admin.site.register(FileAttachment)
 admin.site.register(Lesson)
 admin.site.register(Quiz)
 admin.site.register(Enrollment)

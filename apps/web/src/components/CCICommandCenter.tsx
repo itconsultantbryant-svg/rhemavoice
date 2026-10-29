@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, BriefcaseBusiness, ChartNoAxesCombined, ClipboardCheck, GraduationCap, HeartHandshake, ShieldCheck, UsersRound } from "lucide-react";
+import { BookOpen, ChartNoAxesCombined, ClipboardCheck, GraduationCap, HeartHandshake, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChayilWorkspace } from "@/components/ChayilWorkspace";
 import { useAuth } from "@/lib/auth";
 
-type WorkspaceRole = "management" | "administrator" | "teacher" | "student" | "staff" | "mentor";
+type WorkspaceRole = "administrator" | "teacher" | "student" | "advisor";
 type Workspace = {
   institution: { name: string; tagline: string; student_count: number };
   role: WorkspaceRole;
@@ -17,13 +17,11 @@ type Workspace = {
   links: Array<{ label: string; href: string; description: string }>;
 };
 
-const ROLE_STYLE: Record<WorkspaceRole, { label: string; description: string; icon: typeof ShieldCheck; tone: string }> = {
-  management: { label: "Management Dashboard", description: "Institution-wide oversight, readiness, and strategic activity.", icon: ShieldCheck, tone: "bg-slate-900 text-white" },
+const ROLE_STYLE: Record<WorkspaceRole, { label: string; description: string; icon: typeof UsersRound; tone: string }> = {
   administrator: { label: "Administrator Dashboard", description: "People, program operations, and CCI administration.", icon: UsersRound, tone: "bg-blue-600 text-white" },
   teacher: { label: "Teacher Dashboard", description: "Teaching activity, learner work, and grading workflow.", icon: BookOpen, tone: "bg-emerald-600 text-white" },
   student: { label: "Student Dashboard", description: "Your courses, assignments, formation, and academic progress.", icon: GraduationCap, tone: "bg-violet-600 text-white" },
-  staff: { label: "Staff Dashboard", description: "Program responsibilities and operational collaboration.", icon: BriefcaseBusiness, tone: "bg-amber-500 text-amber-950" },
-  mentor: { label: "Mentor Dashboard", description: "Mentee progress, formation support, and private collaboration.", icon: HeartHandshake, tone: "bg-rose-600 text-white" },
+  advisor: { label: "Advisor Dashboard", description: "Learner progress, support, and private collaboration.", icon: HeartHandshake, tone: "bg-rose-600 text-white" },
 };
 
 export function CCICommandCenterPage({ expectedRole }: { expectedRole?: WorkspaceRole } = {}) {
@@ -42,8 +40,8 @@ export function CCICommandCenterPage({ expectedRole }: { expectedRole?: Workspac
   const metrics = useMemo(() => workspace ? [
     { label: "Open tasks", value: workspace.metrics.open_tasks, icon: ClipboardCheck, visible: true },
     { label: "Completed", value: workspace.metrics.completed_tasks, icon: ChartNoAxesCombined, visible: true },
-    { label: workspace.role === "mentor" ? "Mentees" : "Members", value: workspace.role === "mentor" ? workspace.metrics.mentees : workspace.metrics.members, icon: UsersRound, visible: workspace.role !== "student" },
-    { label: workspace.role === "teacher" ? "To grade" : workspace.role === "management" ? "Audit events" : "Courses", value: workspace.role === "teacher" ? workspace.metrics.pending_submissions : workspace.role === "management" ? workspace.metrics.audit_events : workspace.metrics.courses, icon: BookOpen, visible: workspace.role !== "student" },
+    { label: workspace.role === "advisor" ? "Mentees" : "Members", value: workspace.role === "advisor" ? workspace.metrics.mentees : workspace.metrics.members, icon: UsersRound, visible: workspace.role !== "student" },
+    { label: workspace.role === "teacher" ? "To grade" : workspace.role === "administrator" ? "Audit events" : "Courses", value: workspace.role === "teacher" ? workspace.metrics.pending_submissions : workspace.role === "administrator" ? workspace.metrics.audit_events : workspace.metrics.courses, icon: BookOpen, visible: workspace.role !== "student" },
   ].filter((item) => item.visible) : [], [workspace]);
 
   return <ChayilWorkspace backHref="/academy">

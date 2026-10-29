@@ -60,15 +60,9 @@ class CCIRoleAssignment(models.Model):
     """A CCI responsibility attached to an existing Academy membership/user."""
 
     ROLE = [
-        ("founder", "Founder"),
-        ("program_director", "Program Director"),
-        ("curriculum_director", "Curriculum Director"),
-        ("administration", "Administration"),
-        ("formation_coordinator", "Formation Coordinator"),
-        ("technology_director", "Technology Director"),
-        ("communications_director", "Communications Director"),
-        ("instructor", "Teacher / Instructor"),
-        ("mentor", "Mentor"),
+        ("administrator", "Administrator"),
+        ("teacher", "Teacher"),
+        ("advisor", "Advisor"),
         ("student", "Student"),
     ]
 
@@ -422,7 +416,7 @@ class LiveClass(models.Model):
 
 
 class CCICourseAssignment(models.Model):
-    ROLE = [("teacher", "Teacher"), ("mentor", "Mentor")]
+    ROLE = [("teacher", "Teacher"), ("advisor", "Advisor")]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="cci_assignments")
@@ -451,6 +445,7 @@ class CCILiveClassParticipant(models.Model):
 class Assignment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name="assignments")
+    course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.CASCADE, related_name="assignments")
     title = models.CharField(max_length=200)
     instructions = models.TextField(blank=True, default="")
     due_at = models.DateTimeField(null=True, blank=True)
@@ -475,6 +470,38 @@ class AssignmentSubmission(models.Model):
 
     class Meta:
         unique_together = ("assignment", "user")
+
+
+class CourseContent(models.Model):
+    """Teacher-authored material visible only to learners enrolled in its course."""
+    TYPE = [("content", "Course content"), ("material", "Course material")]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="course_contents")
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True, default="")
+    content_type = models.CharField(max_length=16, choices=TYPE, default="content")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_course_contents")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class FileAttachment(models.Model):
+    """Database-backed attachment with API-authorized downloads."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name="file_attachments")
+    owner_type = models.CharField(max_length=32)
+    owner_id = models.UUIDField()
+    file_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=120, default="application/octet-stream")
+    file_size = models.PositiveIntegerField(default=0)
+    data = models.BinaryField()
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="uploaded_academy_files")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["institution", "owner_type", "owner_id"])]
 
 
 class LearningResource(models.Model):

@@ -168,6 +168,14 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
       get: () => request<DashboardPayload>("/dashboard/"),
     },
     academy: {
+      downloadAttachment: async (id: string, fileName = "download") => {
+        const token = await tokenStore.getAccessToken();
+        const response = await fetch(`${url}/academy/attachments/${id}/download/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        if (!response.ok) throw new ApiError("Unable to download attachment.", response.status);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob); const link = document.createElement("a");
+        link.href = objectUrl; link.download = fileName; link.click(); URL.revokeObjectURL(objectUrl);
+      },
       institutions: () =>
         request<
           Array<{
@@ -202,11 +210,14 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
         request<Array<Record<string, unknown>>>(
           `/academy/assignments/${institution ? `?institution=${institution}` : ""}`
         ),
-      submitAssignment: (id: string, payload: { notes?: string; file_name?: string }) =>
+      submitAssignment: (id: string, payload: { notes?: string; file_name?: string; attachments?: Array<{ file_name: string; content_type: string; data_base64: string }> }) =>
         request<Record<string, unknown>>(`/academy/assignments/${id}/submit/`, {
           method: "POST",
           body: JSON.stringify(payload),
         }),
+      cciCourseContent: (code: string, courseId: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/courses/${courseId}/content/`),
+      createCciCourseContent: (code: string, courseId: string, payload: Record<string, unknown>) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/courses/${courseId}/content/`, { method: "POST", body: JSON.stringify(payload) }),
+      createCciCourseAssignment: (code: string, courseId: string, payload: Record<string, unknown>) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/courses/${courseId}/assignments/create/`, { method: "POST", body: JSON.stringify(payload) }),
       me: () =>
         request<{
           enrollments: Array<Record<string, unknown>>;
@@ -235,7 +246,7 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
         request(`/academy/institutions/${code}/cci/members/`, { method: "POST", body: JSON.stringify(payload) }),
       cciCourses: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/courses/`),
       createCciCourse: (code: string, payload: Record<string, unknown>) => request(`/academy/institutions/${code}/cci/courses/`, { method: "POST", body: JSON.stringify(payload) }),
-      assignCciCourseStaff: (code: string, courseId: string, userId: string, role: "teacher" | "mentor") => request(`/academy/institutions/${code}/cci/courses/${courseId}/assignments/`, { method: "POST", body: JSON.stringify({ user_id: userId, role }) }),
+      assignCciCourseStaff: (code: string, courseId: string, userId: string, role: "teacher" | "advisor") => request(`/academy/institutions/${code}/cci/courses/${courseId}/assignments/`, { method: "POST", body: JSON.stringify({ user_id: userId, role }) }),
       enrollCciCourseStudent: (code: string, courseId: string, userId: string) => request(`/academy/institutions/${code}/cci/courses/${courseId}/students/`, { method: "POST", body: JSON.stringify({ user_id: userId }) }),
       cciLiveClasses: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/live-classes/`),
       createCciLiveClass: (code: string, payload: Record<string, unknown>) => request(`/academy/institutions/${code}/cci/live-classes/`, { method: "POST", body: JSON.stringify(payload) }),
@@ -250,7 +261,7 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
           method: "DELETE",
         }),
       cciResources: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/resources/`),
-      createCciResource: (code: string, payload: { title: string; description?: string; category?: string; access_level?: "staff" | "participants" }) =>
+      createCciResource: (code: string, payload: { title: string; description?: string; category?: string; access_level?: "staff" | "participants"; attachments?: Array<{ file_name: string; content_type: string; data_base64: string }> }) =>
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/resources/`, { method: "POST", body: JSON.stringify(payload) }),
       submitCciResource: (code: string, id: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/resources/${id}/submit/`, { method: "POST" }),
       reviewCciResource: (code: string, id: string, status: "approved" | "rejected", review_note?: string) =>
