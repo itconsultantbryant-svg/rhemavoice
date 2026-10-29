@@ -59,8 +59,8 @@ h3,
 /* Chayil is an academy workspace, deliberately distinct from the dark
    consumer-facing RhemaVoice shell. */
 .chayil-workspace {
-  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
-  background: #f8fafc;
+  font-family: Inter, "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  background: #f7f7fb;
 }
 
 .chayil-workspace h1,
@@ -71,9 +71,10 @@ h3,
 }
 
 .chayil-workspace .rv-card {
-  border-color: #e2e8f0;
+  border-color: #e5e7eb;
   background: #fff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgb(50 16 68 / 0.05);
 }
 
 .chayil-workspace .rv-input {
@@ -83,7 +84,7 @@ h3,
 }
 
 .chayil-workspace .rv-btn-primary {
-  background: #6b21a8;
+  background: #6d28d9;
   color: #fff;
 }
 
@@ -91,3 +92,12 @@ h3,
   border-color: #cbd5e1;
   color: #334155;
 }
+
+.chayil-header { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid #e5e7eb; background: rgb(255 255 255 / .95); backdrop-filter: blur(12px); }
+.chayil-sidebar { position: fixed; inset: 72px auto 0 0; z-index: 30; width: 256px; border-right: 1px solid #e5e7eb; background: #fff; }
+.chayil-main { min-height: calc(100vh - 72px); padding-left: 256px; }
+.chayil-nav-link { display: flex; align-items: center; gap: .75rem; border-radius: 9px; padding: .65rem .75rem; color: #475467; font-size: .875rem; font-weight: 600; transition: background-color .16s ease, color .16s ease; }
+.chayil-nav-link:hover { background: #f3eeff; color: #6d28d9; }
+.chayil-hero { background: linear-gradient(120deg, #321044 0%, #4c1d95 48%, #6d28d9 100%); }
+.chayil-gold { color: #c8a45d; }
+@media (max-width: 1023px) { .chayil-main { padding-left: 0; } }

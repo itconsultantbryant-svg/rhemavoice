@@ -285,6 +285,11 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/students/${studentId}/attendance/`, { method: "POST", body: JSON.stringify(payload) }),
       cciStudentRecords: (code: string, studentId: string) =>
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/students/${studentId}/records/`),
+      cciMentees: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/mentees/`),
+      cciSupportRequests: (code: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/support/`),
+      createCciSupportRequest: (code: string, payload: { subject: string; category: string; description: string; course_id?: string; attachments?: Array<{ file_name: string; content_type: string; data_base64: string }> }) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/support/`, { method: "POST", body: JSON.stringify(payload) }),
+      cciSupportRequest: (code: string, id: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/support/${id}/`),
+      replyCciSupportRequest: (code: string, id: string, body: string) => request<Record<string, unknown>>(`/academy/institutions/${code}/cci/support/${id}/replies/`, { method: "POST", body: JSON.stringify({ body }) }),
       cciGradebook: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/gradebook/`),
       myCciGrades: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/grades/me/`),
       gradeCciSubmission: (code: string, id: string, score: number, reason?: string) =>

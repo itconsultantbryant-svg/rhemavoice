@@ -1317,6 +1317,11 @@ academyRoutes.get("/attachments/:id/download/", async (c) => {
     if (!resource || (resource.status !== "approved" && !ctx.canManage) || (resource.access_level === "staff" && !ctx.isStaff)) return respond(c, forbidden("You cannot download this resource."));
     return new Response(Buffer.from(file.data), { headers: { "Content-Type": file.content_type || "application/octet-stream", "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.file_name)}`, "Cache-Control": "private, no-store" } });
   }
+  if (file.owner_type === "cci_support") {
+    const request = await one<{ requester_id: string }>(`select requester_id from academy_ccisupportrequest where id = $1 and institution_id = $2`, [file.owner_id, ctx.institution.id]);
+    if (!request || (request.requester_id !== auth.user.id && !canManageSupport(ctx, auth.user))) return respond(c, forbidden("You cannot download this support attachment."));
+    return new Response(Buffer.from(file.data), { headers: { "Content-Type": file.content_type || "application/octet-stream", "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.file_name)}`, "Cache-Control": "private, no-store" } });
+  }
   if (!courseId || !(await canAccessCourse(ctx, auth.user.id, courseId, auth.user.is_superuser))) return respond(c, forbidden("You cannot download this file."));
   return new Response(Buffer.from(file.data), { headers: { "Content-Type": file.content_type || "application/octet-stream", "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.file_name)}`, "Cache-Control": "private, no-store" } });
 });
@@ -1652,6 +1657,22 @@ academyRoutes.get("/institutions/:code/cci/students/:studentId/records/", async 
   return c.json({ student: { id: student.id, name: student.display_name || `${student.first_name} ${student.last_name}`.trim() || student.email, email: student.email }, formation_notes: notes.map((n) => ({ ...n, created_at: iso(n.created_at) })), attendance: attendance.map((r) => ({ ...r, recorded_at: iso(r.recorded_at) })) });
 });
 
+// Advisors receive only their explicitly assigned mentees. Administrators may
+// view the program list; no confidential formation notes are returned here.
+academyRoutes.get("/institutions/:code/cci/mentees/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user);
+  if (!ctx || !(auth.user.is_superuser || ctx.roles.includes("administrator") || ctx.roles.includes("advisor"))) return respond(c, forbidden("CCI advisor access is required."));
+  const rows = await query<{ id: string; display_name: string; first_name: string; last_name: string; email: string; notes: string; rating: string }>(
+    `select u.id, u.display_name, u.first_name, u.last_name, u.email, ma.notes, ma.rating
+       from academy_mentorassignment ma join users_user u on u.id = ma.student_id
+      where ma.institution_id = $1 ${auth.user.is_superuser || ctx.roles.includes("administrator") ? "" : "and ma.mentor_id = $2"}
+      order by u.display_name, u.email`,
+    auth.user.is_superuser || ctx.roles.includes("administrator") ? [ctx.institution.id] : [ctx.institution.id, auth.user.id],
+  );
+  return c.json(rows.map((row) => ({ id: row.id, name: row.display_name || `${row.first_name} ${row.last_name}`.trim() || row.email, email: row.email, notes: row.notes, rating: num(row.rating) })));
+});
+
 const CCI_GRADERS = new Set(["administrator", "teacher"]);
 type GradeRow = { submission_id: string; student_id: string; assignment_id: string; assignment_title: string; max_marks: number; status: string; score: number | null; submitted_at: Date | null; notes: string };
 
@@ -1750,4 +1771,39 @@ academyRoutes.post("/institutions/:code/cci/bonding/:id/moderate/", async (c) =>
   await query(`update academy_ccibondingpost set status = $1, moderation_note = $2, moderated_by_id = $3, moderated_at = now() where id = $4`, [status, String(body.note ?? "").trim(), auth.user.id, id]);
   await cciAudit(ctx.institution.id, auth.user.id, `cci.bonding_post.${status}`, "bonding_post", id);
   return c.json({ id, status });
+});
+
+type SupportRequestRow = { id: string; requester_id: string; subject: string; category: string; description: string; status: string; course_id: string | null; created_at: Date; updated_at: Date; requester_name?: string; requester_email?: string };
+function serializeSupportRequest(row: SupportRequestRow, includeRequester: boolean) { return { id: row.id, subject: row.subject, category: row.category, description: row.description, status: row.status, course_id: row.course_id, created_at: iso(row.created_at), updated_at: iso(row.updated_at), requester: includeRequester ? { id: row.requester_id, name: row.requester_name, email: row.requester_email } : undefined }; }
+function canManageSupport(ctx: CCIContext, user: { is_superuser: boolean }) { return user.is_superuser || ctx.roles.includes("administrator"); }
+
+academyRoutes.get("/institutions/:code/cci/support/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const manager = canManageSupport(ctx, auth.user);
+  const rows = await query<SupportRequestRow>(manager ? `select r.id, r.requester_id, r.subject, r.category, r.description, r.status, r.course_id, r.created_at, r.updated_at, u.display_name as requester_name, u.email as requester_email from academy_ccisupportrequest r join users_user u on u.id=r.requester_id where r.institution_id=$1 order by r.updated_at desc` : `select id, requester_id, subject, category, description, status, course_id, created_at, updated_at from academy_ccisupportrequest where institution_id=$1 and requester_id=$2 order by updated_at desc`, manager ? [ctx.institution.id] : [ctx.institution.id, auth.user.id]);
+  return c.json({ can_manage: manager, requests: rows.map((row) => serializeSupportRequest(row, manager)) });
+});
+
+academyRoutes.post("/institutions/:code/cci/support/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const subject = String(body.subject ?? "").trim(); const category = String(body.category ?? "general").trim(); const description = String(body.description ?? "").trim(); const courseId = body.course_id ? String(body.course_id) : null;
+  if (!subject || subject.length > 200 || !description || description.length > 5000 || category.length > 80 || (courseId && !UUID_RE.test(courseId))) return respond(c, detail("Enter a valid subject, category, description, and optional course."));
+  if (courseId && !await one<{ id: string }>(`select id from academy_course where id=$1 and institution_id=$2`, [courseId, ctx.institution.id])) return respond(c, fieldError({ course_id: ["Choose a CCI course."] }));
+  const id = uuid(); await query(`insert into academy_ccisupportrequest (id,institution_id,requester_id,course_id,subject,category,description,status,created_at,updated_at) values ($1,$2,$3,$4,$5,$6,$7,'open',now(),now())`, [id, ctx.institution.id, auth.user.id, courseId, subject, category, description]);
+  try { const attachments = await saveAttachments(ctx.institution.id, "cci_support", id, auth.user.id, body.attachments); await cciAudit(ctx.institution.id, auth.user.id, "cci.support.created", "support_request", id); return c.json({ id, subject, status: "open", attachments }, 201); } catch (error) { await query(`delete from academy_ccisupportrequest where id=$1`, [id]); return respond(c, detail(error instanceof Error ? error.message : "Unable to save attachment.")); }
+});
+
+academyRoutes.get("/institutions/:code/cci/support/:id/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response); const id = c.req.param("id"); const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx || !UUID_RE.test(id)) return respond(c, notFound()); const manager = canManageSupport(ctx, auth.user);
+  const request = await one<SupportRequestRow>(`select r.id,r.requester_id,r.subject,r.category,r.description,r.status,r.course_id,r.created_at,r.updated_at,u.display_name as requester_name,u.email as requester_email from academy_ccisupportrequest r join users_user u on u.id=r.requester_id where r.id=$1 and r.institution_id=$2`, [id, ctx.institution.id]);
+  if (!request || (!manager && request.requester_id !== auth.user.id)) return respond(c, notFound());
+  const replies = await query<{ id: string; body: string; created_at: Date; author_id: string; display_name: string; email: string }>(`select p.id,p.body,p.created_at,p.author_id,u.display_name,u.email from academy_ccisupportreply p join users_user u on u.id=p.author_id where p.request_id=$1 order by p.created_at`, [id]);
+  return c.json({ ...serializeSupportRequest(request, manager), replies: replies.map((reply) => ({ id: reply.id, body: reply.body, created_at: iso(reply.created_at), is_mine: reply.author_id === auth.user.id, author: manager || reply.author_id === auth.user.id ? (reply.display_name || reply.email) : "CCI Support" })) });
+});
+
+academyRoutes.post("/institutions/:code/cci/support/:id/replies/", async (c) => {
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response); const id = c.req.param("id"); const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx || !UUID_RE.test(id)) return respond(c, notFound()); const manager = canManageSupport(ctx, auth.user); const request = await one<{ id: string; requester_id: string }>(`select id,requester_id from academy_ccisupportrequest where id=$1 and institution_id=$2`, [id, ctx.institution.id]); if (!request || (!manager && request.requester_id !== auth.user.id)) return respond(c, notFound());
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const message = String(body.body ?? "").trim(); if (!message || message.length > 5000) return respond(c, fieldError({ body: ["Enter a response of 5,000 characters or fewer."] })); const replyId = uuid(); await query(`insert into academy_ccisupportreply (id,request_id,author_id,body,created_at) values ($1,$2,$3,$4,now())`, [replyId, id, auth.user.id, message]); await query(`update academy_ccisupportrequest set status=$1,updated_at=now() where id=$2`, [manager ? "awaiting_response" : "in_progress", id]); return c.json({ id: replyId, body: message }, 201);
 });

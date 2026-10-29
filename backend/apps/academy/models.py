@@ -504,6 +504,35 @@ class FileAttachment(models.Model):
         indexes = [models.Index(fields=["institution", "owner_type", "owner_id"])]
 
 
+class CCISupportRequest(models.Model):
+    STATUS = [("open", "Open"), ("in_progress", "In progress"), ("awaiting_response", "Awaiting response"), ("resolved", "Resolved"), ("closed", "Closed")]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name="support_requests")
+    requester = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cci_support_requests")
+    course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.SET_NULL, related_name="support_requests")
+    subject = models.CharField(max_length=200)
+    category = models.CharField(max_length=80, default="general")
+    description = models.TextField()
+    status = models.CharField(max_length=24, choices=STATUS, default="open")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        indexes = [models.Index(fields=["institution", "status", "updated_at"]), models.Index(fields=["requester", "status"])]
+
+
+class CCISupportReply(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    request = models.ForeignKey(CCISupportRequest, on_delete=models.CASCADE, related_name="replies")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="cci_support_replies")
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+
 class LearningResource(models.Model):
     TYPE = [
         ("video", "Video"),
