@@ -6,23 +6,38 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def normalize_cci_roles(apps, schema_editor):
+    """Map retired CCI responsibilities to the four supported roles on any DB."""
+    CCIRoleAssignment = apps.get_model("academy", "CCIRoleAssignment")
+    CCICourseAssignment = apps.get_model("academy", "CCICourseAssignment")
+    role_map = {
+        "founder": "administrator", "program_director": "administrator", "administration": "administrator",
+        "curriculum_director": "teacher", "instructor": "teacher",
+        "formation_coordinator": "advisor", "mentor": "advisor",
+    }
+    keepers = {}
+    duplicates = []
+    for assignment in CCIRoleAssignment.objects.order_by("id"):
+        role = role_map.get(assignment.role, assignment.role)
+        key = (assignment.institution_id, assignment.user_id, role)
+        if key in keepers:
+            duplicates.append(assignment.pk)
+        else:
+            keepers[key] = (assignment, role)
+    if duplicates:
+        CCIRoleAssignment.objects.filter(pk__in=duplicates).delete()
+    for assignment, role in keepers.values():
+        if assignment.role != role:
+            assignment.role = role
+            assignment.save(update_fields=["role"])
+    CCICourseAssignment.objects.filter(role="mentor").update(role="advisor")
+
+
 class Migration(migrations.Migration):
     dependencies = [migrations.swappable_dependency(settings.AUTH_USER_MODEL), ("academy", "0013_cci_course_and_live_class_controls")]
 
     operations = [
-        migrations.RunSQL(
-            """
-            delete from academy_cciroleassignment a using academy_cciroleassignment b
-              where a.id > b.id and a.institution_id = b.institution_id and a.user_id = b.user_id
-                and (case a.role when 'founder' then 'administrator' when 'program_director' then 'administrator' when 'administration' then 'administrator' when 'curriculum_director' then 'teacher' when 'instructor' then 'teacher' when 'formation_coordinator' then 'advisor' when 'mentor' then 'advisor' else a.role end)
-                  = (case b.role when 'founder' then 'administrator' when 'program_director' then 'administrator' when 'administration' then 'administrator' when 'curriculum_director' then 'teacher' when 'instructor' then 'teacher' when 'formation_coordinator' then 'advisor' when 'mentor' then 'advisor' else b.role end);
-            update academy_cciroleassignment set role = 'administrator' where role in ('founder', 'program_director', 'administration');
-            update academy_cciroleassignment set role = 'teacher' where role in ('curriculum_director', 'instructor');
-            update academy_cciroleassignment set role = 'advisor' where role in ('formation_coordinator', 'mentor');
-            update academy_ccicourseassignment set role = 'advisor' where role = 'mentor';
-            """,
-            migrations.RunSQL.noop,
-        ),
+        migrations.RunPython(normalize_cci_roles, migrations.RunPython.noop),
         migrations.AddField(
             model_name="assignment",
             name="course",
