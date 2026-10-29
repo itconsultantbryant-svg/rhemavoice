@@ -4,7 +4,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import { api } from "../../../../lib/api";
 
-type WorkspaceRole = "management" | "administrator" | "teacher" | "student" | "staff" | "mentor";
+type WorkspaceRole = "administrator" | "teacher" | "student" | "advisor";
 type Workspace = {
   institution: { name: string };
   role: WorkspaceRole;
@@ -14,12 +14,10 @@ type Workspace = {
 };
 
 const ROLE: Record<WorkspaceRole, { title: string; subtitle: string; color: string; soft: string }> = {
-  management: { title: "Management Dashboard", subtitle: "Institution-wide oversight and strategic activity", color: "#0F172A", soft: "#E2E8F0" },
   administrator: { title: "Administrator Dashboard", subtitle: "People, program operations, and CCI administration", color: "#2563EB", soft: "#DBEAFE" },
   teacher: { title: "Teacher Dashboard", subtitle: "Teaching activity, learner work, and grading", color: "#059669", soft: "#D1FAE5" },
   student: { title: "Student Dashboard", subtitle: "Your courses, assignments, formation, and progress", color: "#7C3AED", soft: "#EDE9FE" },
-  staff: { title: "Staff Dashboard", subtitle: "Program responsibilities and operational collaboration", color: "#D97706", soft: "#FEF3C7" },
-  mentor: { title: "Mentor Dashboard", subtitle: "Mentee progress and formation support", color: "#E11D48", soft: "#FFE4E6" },
+  advisor: { title: "Advisor Dashboard", subtitle: "Mentee progress and formation support", color: "#E11D48", soft: "#FFE4E6" },
 };
 
 export default function CCICommandCenter() {
@@ -32,8 +30,8 @@ export default function CCICommandCenter() {
   const role = ROLE[workspace.role];
   const metrics = [
     ["Open tasks", workspace.metrics.open_tasks], ["Completed", workspace.metrics.completed_tasks],
-    [workspace.role === "mentor" ? "Mentees" : "Members", workspace.role === "mentor" ? workspace.metrics.mentees : workspace.metrics.members],
-    [workspace.role === "teacher" ? "To grade" : workspace.role === "management" ? "Audit events" : "Courses", workspace.role === "teacher" ? workspace.metrics.pending_submissions : workspace.role === "management" ? workspace.metrics.audit_events : workspace.metrics.courses],
+    [workspace.role === "advisor" ? "Mentees" : "Members", workspace.role === "advisor" ? workspace.metrics.mentees : workspace.metrics.members],
+    [workspace.role === "teacher" ? "To grade" : workspace.role === "administrator" ? "Audit events" : "Courses", workspace.role === "teacher" ? workspace.metrics.pending_submissions : workspace.role === "administrator" ? workspace.metrics.audit_events : workspace.metrics.courses],
   ].filter(([, value], index) => index < 2 || (workspace.role !== "student" && value !== undefined));
   const navigate = (href: string) => {
     if (href === "../") return router.push(`/(app)/academy/${code}`);

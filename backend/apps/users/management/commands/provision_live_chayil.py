@@ -18,40 +18,26 @@ from apps.users.models import User
 
 
 ACCOUNTS = {
-    "management": {
-        "email": "management@rhemavoice.app",
-        "first_name": "Chayil",
-        "last_name": "Management",
-        "membership_role": "academy_admin",
-        "cci_role": "founder",
-    },
     "administrator": {
         "email": "administrator@rhemavoice.app",
         "first_name": "Chayil",
         "last_name": "Administrator",
         "membership_role": "academy_admin",
-        "cci_role": "administration",
+        "cci_role": "administrator",
     },
     "teacher": {
         "email": "teacher@rhemavoice.app",
         "first_name": "Chayil",
         "last_name": "Teacher",
         "membership_role": "instructor",
-        "cci_role": "instructor",
+        "cci_role": "teacher",
     },
-    "mentor": {
+    "advisor": {
         "email": "mentor@rhemavoice.app",
         "first_name": "Chayil",
-        "last_name": "Mentor",
+        "last_name": "Advisor",
         "membership_role": "mentor",
-        "cci_role": "mentor",
-    },
-    "staff": {
-        "email": "staff@rhemavoice.app",
-        "first_name": "Chayil",
-        "last_name": "Staff",
-        "membership_role": "staff",
-        "cci_role": "technology_director",
+        "cci_role": "advisor",
     },
     "student": {
         "email": "student@rhemavoice.app",
@@ -73,7 +59,7 @@ class Command(BaseCommand):
             action="append",
             default=[],
             metavar="ROLE=PASSWORD",
-            help="Provide one password for each role: management, administrator, teacher, mentor, staff, student.",
+            help="Provide one password for each role: administrator, teacher, advisor, student.",
         )
 
     def handle(self, *args, **options):

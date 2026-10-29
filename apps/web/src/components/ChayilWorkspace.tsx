@@ -16,9 +16,9 @@ export function ChayilWorkspace({ children, backHref, backLabel = "Rhema Academy
   const links: Array<[LucideIcon, string, string]> = role === "administrator" ? [
     [Home, "Overview", base], [UsersRound, "People & access", `${base}/members`], [BookOpen, "Learning operations", `${base}/learning`], [Library, "Curriculum library", `${base}/resources`], [CalendarDays, "Calendar", `${base}/calendar`], [ClipboardList, "Reports", `${base}/reports`],
   ] : role === "teacher" ? [
-    [Home, "Overview", base], [BookOpen, "My teaching", `${base}/teacher`], [ClipboardList, "Gradebook", `${base}/gradebook`], [CalendarDays, "Calendar", `${base}/calendar`],
+    [Home, "Overview", base], [BookOpen, "My teaching", `${base}/teacher`], [ClipboardList, "Gradebook", `${base}/gradebook`], [CalendarDays, "Calendar", `${base}/calendar`], [LifeBuoy, "Support", `${base}/support`],
   ] : role === "advisor" ? [
-    [Home, "Overview", base], [UsersRound, "My mentees", `${base}/mentees`], [CalendarDays, "Calendar", `${base}/calendar`], [Library, "Course materials", `${base}/student-learning`],
+    [Home, "Overview", base], [UsersRound, "My mentees", `${base}/mentees`], [CalendarDays, "Calendar", `${base}/calendar`], [LifeBuoy, "Support", `${base}/support`],
   ] : [
     [Home, "Overview", base], [BookOpen, "My learning", `${base}/student-learning`], [ClipboardList, "My grades", `${base}/gradebook`], [CalendarDays, "Calendar", `${base}/calendar`], [Library, "Resources", `${base}/resources`], [LifeBuoy, "Support", `${base}/support`],
   ];

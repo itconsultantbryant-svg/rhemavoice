@@ -939,7 +939,11 @@ async function cciContext(code: string, user: { id: string; is_superuser: boolea
     `select role from academy_cciroleassignment where institution_id = $1 and user_id = $2 and is_active = true`,
     [institution.id, user.id],
   );
-  const roles = rows.map((r) => r.role);
+  // Membership alone does not grant CCI access. A participant must also hold
+  // one of the four explicitly supported CCI roles. Filtering here also makes
+  // retired role values harmless while the data migration removes them.
+  const roles = rows.map((r) => r.role).filter((role) => CCI_ROLES.has(role));
+  if (!roles.length && !isPlatformAdmin) return null;
   const isStaff = isPlatformAdmin || roles.some((role) => role !== "student");
   return { institution, roles, canManage: isPlatformAdmin || roles.some((role) => CCI_MANAGERS.has(role)), isStaff };
 }
@@ -1024,7 +1028,6 @@ academyRoutes.get("/institutions/:code/cci/workspace/", async (c) => {
     teacher: [
       { label: "My teaching", href: "teacher", description: "Upload course content and create assignments for assigned courses" },
       { label: "Gradebook", href: "gradebook", description: "Review and grade submitted work" },
-      { label: "Student records", href: "members", description: "Open learner formation records" },
       { label: "Calendar", href: "calendar", description: "View program teaching dates" },
       { label: "Staff connect", href: "staff-connect", description: "Coordinate with program staff" },
     ],
@@ -1035,8 +1038,8 @@ academyRoutes.get("/institutions/:code/cci/workspace/", async (c) => {
       { label: "Calendar", href: "calendar", description: "Upcoming CCI events" },
     ],
     advisor: [
-      { label: "Learner records", href: "members", description: "Open assigned learner records" },
-      { label: "My learning", href: "../", description: "Program curriculum and progress" },
+      { label: "My mentees", href: "mentees", description: "Open records for learners assigned to you" },
+      { label: "Calendar", href: "calendar", description: "View program formation dates" },
       { label: "Staff connect", href: "staff-connect", description: "Coordinate learner support" },
       { label: "Community", href: "bonding", description: "Participant encouragement" },
     ],

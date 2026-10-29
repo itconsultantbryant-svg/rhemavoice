@@ -1,7 +1,7 @@
 "use client";
 
 import { FadeIn } from "@rhemavoice/ui";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import AdminShell from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
 
@@ -14,8 +14,8 @@ export default function ContentPage() {
   const [form, setForm] = useState<Record<string, unknown>>(blank);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const load = () => api.admin.content().then((rows) => setItems(rows as Content[]));
-  useEffect(() => { load().catch(() => setMessage("Unable to load content.")); }, [api]);
+  const load = useCallback(() => api.admin.content().then((rows) => setItems(rows as Content[])), [api]);
+  useEffect(() => { load().catch(() => setMessage("Unable to load content.")); }, [load]);
 
   async function submit(event: FormEvent) {
     event.preventDefault(); setSaving(true); setMessage("");
