@@ -17,6 +17,7 @@ type AuthContextValue = {
   getAccessToken: () => string | null;
   setCciAccessToken: (institutionCode: string, token: string) => void;
   clearCciAccessToken: (institutionCode: string) => void;
+  hasCciAccessToken: (institutionCode: string) => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -39,6 +40,7 @@ function loadTokens(): AuthTokens | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cciSessions, setCciSessions] = useState<Record<string, true>>({});
 
   const api = useMemo(
     () =>
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout: async () => {
       await api.auth.logout();
       cciMemory.clear();
+      setCciSessions({});
       setUser(null);
     },
     setTheme: async (theme) => {
@@ -113,8 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(updated);
     },
     getAccessToken: () => memory.access || (typeof window !== "undefined" ? localStorage.getItem("rv_access") : null),
-    setCciAccessToken: (institutionCode, token) => cciMemory.set(institutionCode, token),
-    clearCciAccessToken: (institutionCode) => cciMemory.delete(institutionCode),
+    setCciAccessToken: (institutionCode, token) => { cciMemory.set(institutionCode, token); setCciSessions((sessions) => ({ ...sessions, [institutionCode]: true })); },
+    clearCciAccessToken: (institutionCode) => { cciMemory.delete(institutionCode); setCciSessions((sessions) => { const next = { ...sessions }; delete next[institutionCode]; return next; }); },
+    hasCciAccessToken: (institutionCode) => Boolean(cciSessions[institutionCode] && cciMemory.get(institutionCode)),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

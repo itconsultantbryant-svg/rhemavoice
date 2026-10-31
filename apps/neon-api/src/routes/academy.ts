@@ -1168,7 +1168,14 @@ academyRoutes.patch("/institutions/:code/cci/members/:userId/credentials/", asyn
   if (!/^[a-z0-9][a-z0-9._@-]{2,63}$/.test(username)) return respond(c, fieldError({ cci_username: ["Use 3–64 lowercase letters, numbers, dots, @ signs, hyphens, or underscores."] }));
   if (password && password.length < 12) return respond(c, fieldError({ cci_password: ["Use at least 12 characters for a reset password."] }));
   const credential = await one<{ id: string }>(`select id from academy_ccicredential where institution_id = $1 and user_id = $2`, [ctx!.institution.id, userId]);
-  if (!credential) return respond(c, notFound("No CCI credential has been issued for this user."));
+  const member = await one<{ id: string }>(`select id from academy_academymembership where institution_id = $1 and user_id = $2 and is_active = true`, [ctx!.institution.id, userId]);
+  if (!member) return respond(c, notFound("CCI member not found."));
+  if (!credential && !password) return respond(c, fieldError({ cci_password: ["Enter a password to issue this user's first CCI credential."] }));
+  if (!credential) {
+    await query(`insert into academy_ccicredential (id, institution_id, user_id, username, password, is_active, created_by_id, created_at, updated_at) values ($1,$2,$3,$4,$5,true,$6,now(),now())`, [uuid(), ctx!.institution.id, userId, username, hashPassword(password), auth.user.id]);
+    await cciAudit(ctx!.institution.id, auth.user.id, "cci.credential.issued", "user", userId, { cci_username: username });
+    return c.json({ user_id: userId, cci_username: username, password_reset: true }, 201);
+  }
   const values: unknown[] = [username];
   const sets = ["username = $1", "is_active = true", "updated_at = now()"];
   if (password) { values.push(hashPassword(password)); sets.push(`password = $${values.length}`); }
