@@ -36,7 +36,9 @@ export function CCICommandCenterPage({ expectedRole }: { expectedRole?: Workspac
     try { setWorkspace(await api.academy.cciWorkspace(code) as unknown as Workspace); setError(""); }
     catch { setError("CCI sign-in required. Enter the credentials issued by your CCI administrator."); }
   }, [api, code]);
-  useEffect(() => { void load(); }, [load]);
+  // Do not probe a protected CCI endpoint before the user signs in to CCI.
+  // Besides producing a misleading 403 in the browser console, that made the
+  // CCI login screen appear unreliable after a fresh RhemaVoice sign-in.
   useEffect(() => { if (workspace && !expectedRole) router.replace(`/academy/${code}/cci/${workspace.role}`); }, [code, expectedRole, router, workspace]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
@@ -59,7 +61,7 @@ export function CCICommandCenterPage({ expectedRole }: { expectedRole?: Workspac
     { label: workspace.role === "teacher" ? "To grade" : workspace.role === "administrator" ? "Audit events" : "Courses", value: workspace.role === "teacher" ? workspace.metrics.pending_submissions : workspace.role === "administrator" ? workspace.metrics.audit_events : workspace.metrics.courses, icon: BookOpen, visible: workspace.role !== "student" },
   ].filter((item) => item.visible) : [], [workspace]);
 
-  if (!workspace && error) return <CciLogin code={code} error={error} credentials={credentials} signingIn={signingIn} onChange={setCredentials} onSubmit={signIn} />;
+  if (!workspace) return <CciLogin code={code} error={error} credentials={credentials} signingIn={signingIn} onChange={setCredentials} onSubmit={signIn} />;
 
   return <ChayilWorkspace backHref="/academy">
     {!workspace && !error && <p className="py-20 text-center text-sm text-slate-500">Loading Chayil workspace…</p>}
@@ -77,7 +79,7 @@ function CciLogin({ code, error, credentials, signingIn, onChange, onSubmit }: {
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <label className="block text-sm font-semibold text-slate-800">CCI username<input autoComplete="username" required className="rv-input mt-1.5" value={credentials.username} onChange={(event) => onChange({ ...credentials, username: event.target.value })} /></label>
         <label className="block text-sm font-semibold text-slate-800">CCI password<input autoComplete="current-password" required type="password" className="rv-input mt-1.5" value={credentials.password} onChange={(event) => onChange({ ...credentials, password: event.target.value })} /></label>
-        <p role="alert" className="text-sm text-red-700">{error}</p>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <button disabled={signingIn} className="rv-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60">{signingIn ? "Signing in…" : "Enter CCI"}</button>
       </form>
       <a href="/academy" className="mt-5 inline-block text-sm font-medium text-violet-700 hover:text-violet-950">← Return to Rhema Academy</a>
