@@ -1133,25 +1133,49 @@ academyRoutes.get("/institutions/:code/cci/members/", async (c) => {
   if (!ctx || !ctx.canManage) return respond(c, forbidden("CCI staff permission is required."));
   const rows = await query<{
     user_id: string; email: string; first_name: string; last_name: string; display_name: string;
-    membership_role: string; cci_role: string | null; cci_role_active: boolean | null;
+    membership_role: string; cci_role: string | null; cci_role_active: boolean | null; cci_username: string | null;
   }>(
-    `select m.user_id, u.email, u.first_name, u.last_name, u.display_name, m.role as membership_role,
-            r.role as cci_role, r.is_active as cci_role_active
+      `select m.user_id, u.email, u.first_name, u.last_name, u.display_name, m.role as membership_role,
+             r.role as cci_role, r.is_active as cci_role_active, cred.username as cci_username
        from academy_academymembership m join users_user u on u.id = m.user_id
        left join academy_cciroleassignment r on r.institution_id = m.institution_id and r.user_id = m.user_id
+       left join academy_ccicredential cred on cred.institution_id = m.institution_id and cred.user_id = m.user_id
       where m.institution_id = $1 and m.is_active = true
       order by u.email, r.role`, [ctx.institution.id],
   );
-  const members = new Map<string, { id: string; name: string; email: string; membership_role: string; cci_roles: string[] }>();
+  const members = new Map<string, { id: string; name: string; email: string; membership_role: string; cci_roles: string[]; cci_username: string | null }>();
   for (const row of rows) {
     const member = members.get(row.user_id) ?? {
       id: row.user_id, name: row.display_name || `${row.first_name} ${row.last_name}`.trim() || row.email,
-      email: row.email, membership_role: row.membership_role, cci_roles: [],
+      email: row.email, membership_role: row.membership_role, cci_roles: [], cci_username: row.cci_username,
     };
     if (row.cci_role && row.cci_role_active) member.cci_roles.push(row.cci_role);
     members.set(row.user_id, member);
   }
   return c.json([...members.values()]);
+});
+
+academyRoutes.patch("/institutions/:code/cci/members/:userId/credentials/", async (c) => {
+  const auth = await requireUser(c);
+  if (!auth.ok) return respond(c, auth.response);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
+  const roleManager = ctx && (auth.user.is_superuser || ctx.roles.some((role) => CCI_ROLE_MANAGERS.has(role)));
+  const userId = c.req.param("userId");
+  if (!roleManager || !UUID_RE.test(userId)) return respond(c, forbidden("CCI member-management permission is required."));
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const username = String(body.cci_username ?? "").trim().toLowerCase();
+  const password = String(body.cci_password ?? "");
+  if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username)) return respond(c, fieldError({ cci_username: ["Use 3–64 lowercase letters, numbers, dots, hyphens, or underscores."] }));
+  if (password && password.length < 12) return respond(c, fieldError({ cci_password: ["Use at least 12 characters for a reset password."] }));
+  const credential = await one<{ id: string }>(`select id from academy_ccicredential where institution_id = $1 and user_id = $2`, [ctx!.institution.id, userId]);
+  if (!credential) return respond(c, notFound("No CCI credential has been issued for this user."));
+  const values: unknown[] = [username];
+  const sets = ["username = $1", "is_active = true", "updated_at = now()"];
+  if (password) { values.push(hashPassword(password)); sets.push(`password = $${values.length}`); }
+  values.push(credential.id);
+  await query(`update academy_ccicredential set ${sets.join(", ")} where id = $${values.length}`, values);
+  await cciAudit(ctx!.institution.id, auth.user.id, "cci.credential.updated", "user", userId, { cci_username: username, password_reset: Boolean(password) });
+  return c.json({ user_id: userId, cci_username: username, password_reset: Boolean(password) });
 });
 
 // CCI never creates a second RhemaVoice identity. Management and

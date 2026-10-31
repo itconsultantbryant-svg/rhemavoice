@@ -258,6 +258,8 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
       cciMembers: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/members/`),
       createCciMember: (code: string, payload: { email: string; membership_role: string; cci_role: string; cci_username: string; cci_password: string }) =>
         request(`/academy/institutions/${code}/cci/members/`, { method: "POST", body: JSON.stringify(payload) }),
+      updateCciMemberCredentials: (code: string, userId: string, payload: { cci_username: string; cci_password?: string }) =>
+        request<Record<string, unknown>>(`/academy/institutions/${code}/cci/members/${userId}/credentials/`, { method: "PATCH", body: JSON.stringify(payload) }),
       cciCourses: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/courses/`),
       createCciCourse: (code: string, payload: Record<string, unknown>) => request(`/academy/institutions/${code}/cci/courses/`, { method: "POST", body: JSON.stringify(payload) }),
       assignCciCourseStaff: (code: string, courseId: string, userId: string, role: "teacher" | "advisor") => request(`/academy/institutions/${code}/cci/courses/${courseId}/assignments/`, { method: "POST", body: JSON.stringify({ user_id: userId, role }) }),
