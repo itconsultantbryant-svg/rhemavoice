@@ -22,6 +22,9 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const memory = { access: null as string | null, refresh: null as string | null };
+// CCI is a step-up authentication session. It must never survive a browser
+// reload or a new RhemaVoice sign-in, unlike the main account tokens.
+const cciMemory = new Map<string, string>();
 
 function loadTokens(): AuthTokens | null {
   if (typeof window === "undefined") return null;
@@ -54,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem("rv_access");
           localStorage.removeItem("rv_refresh");
         },
-        getCciAccessToken: (institutionCode) => typeof window === "undefined" ? null : localStorage.getItem(`rv_cci_${institutionCode}`),
+        getCciAccessToken: (institutionCode) => cciMemory.get(institutionCode) ?? null,
       }),
     []
   );
@@ -102,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshMe: async () => setUser(await api.auth.me()),
     logout: async () => {
       await api.auth.logout();
-      Object.keys(localStorage).filter((key) => key.startsWith("rv_cci_")).forEach((key) => localStorage.removeItem(key));
+      cciMemory.clear();
       setUser(null);
     },
     setTheme: async (theme) => {
@@ -110,8 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(updated);
     },
     getAccessToken: () => memory.access || (typeof window !== "undefined" ? localStorage.getItem("rv_access") : null),
-    setCciAccessToken: (institutionCode, token) => localStorage.setItem(`rv_cci_${institutionCode}`, token),
-    clearCciAccessToken: (institutionCode) => localStorage.removeItem(`rv_cci_${institutionCode}`),
+    setCciAccessToken: (institutionCode, token) => cciMemory.set(institutionCode, token),
+    clearCciAccessToken: (institutionCode) => cciMemory.delete(institutionCode),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
