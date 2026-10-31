@@ -1165,7 +1165,7 @@ academyRoutes.patch("/institutions/:code/cci/members/:userId/credentials/", asyn
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const username = String(body.cci_username ?? "").trim().toLowerCase();
   const password = String(body.cci_password ?? "");
-  if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username)) return respond(c, fieldError({ cci_username: ["Use 3–64 lowercase letters, numbers, dots, hyphens, or underscores."] }));
+  if (!/^[a-z0-9][a-z0-9._@-]{2,63}$/.test(username)) return respond(c, fieldError({ cci_username: ["Use 3–64 lowercase letters, numbers, dots, @ signs, hyphens, or underscores."] }));
   if (password && password.length < 12) return respond(c, fieldError({ cci_password: ["Use at least 12 characters for a reset password."] }));
   const credential = await one<{ id: string }>(`select id from academy_ccicredential where institution_id = $1 and user_id = $2`, [ctx!.institution.id, userId]);
   if (!credential) return respond(c, notFound("No CCI credential has been issued for this user."));
@@ -1195,7 +1195,7 @@ academyRoutes.post("/institutions/:code/cci/members/", async (c) => {
   if (!email || !email.includes("@")) return respond(c, fieldError({ email: ["Enter a valid RhemaVoice email address."] }));
    if (!["student", "mentor", "instructor", "staff", "academy_admin"].includes(membershipRole)) return respond(c, fieldError({ membership_role: ["Enter a valid academy role."] }));
   if (!CCI_ROLES.has(cciRole)) return respond(c, fieldError({ cci_role: ["Enter a valid CCI role."] }));
-  if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username)) return respond(c, fieldError({ cci_username: ["Use 3–64 lowercase letters, numbers, dots, hyphens, or underscores."] }));
+  if (!/^[a-z0-9][a-z0-9._@-]{2,63}$/.test(username)) return respond(c, fieldError({ cci_username: ["Use 3–64 lowercase letters, numbers, dots, @ signs, hyphens, or underscores."] }));
   if (password.length < 12) return respond(c, fieldError({ cci_password: ["Set a temporary CCI password with at least 12 characters."] }));
   const user = await one<{ id: string; email: string }>(`select id, email from users_user where lower(email) = $1 and is_active = true and approval_status = 'approved'`, [email]);
    if (!user) return respond(c, detail("This user must first create and verify a RhemaVoice account."));
