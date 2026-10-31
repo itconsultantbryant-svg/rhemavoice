@@ -11,6 +11,7 @@ const ACCESS_TTL = 60 * 60; // 60 minutes, matches SIMPLE_JWT ACCESS_TOKEN_LIFET
 const REFRESH_TTL = 60 * 60 * 24 * 7; // 7 days, matches SIMPLE_JWT REFRESH_TOKEN_LIFETIME
 
 export type TokenType = "access" | "refresh";
+export type CciTokenType = "cci_access";
 
 export type AuthUser = {
   id: string;
@@ -35,6 +36,25 @@ async function sign(userId: string, type: TokenType, ttl: number): Promise<strin
     .setExpirationTime(Math.floor(Date.now() / 1000) + ttl)
     .setJti(crypto.randomUUID())
     .sign(SECRET);
+}
+
+/** A short-lived, institution-scoped proof from the separate CCI sign-in. */
+export async function issueCciAccessToken(userId: string, institutionId: string): Promise<string> {
+  return new SignJWT({ token_type: "cci_access", user_id: userId, institution_id: institutionId })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setIssuedAt()
+    .setExpirationTime(Math.floor(Date.now() / 1000) + 60 * 30)
+    .setJti(crypto.randomUUID())
+    .sign(SECRET);
+}
+
+export async function verifyCciAccessToken(token: string, userId: string, institutionId: string): Promise<boolean> {
+  try {
+    const { payload } = await jwtVerify(token, SECRET, { algorithms: ["HS256"] });
+    return payload.token_type === "cci_access" && payload.user_id === userId && payload.institution_id === institutionId;
+  } catch {
+    return false;
+  }
 }
 
 export async function verifyToken(token: string, type: TokenType): Promise<JWTPayload | null> {

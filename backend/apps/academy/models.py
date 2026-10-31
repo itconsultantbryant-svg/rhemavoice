@@ -81,6 +81,27 @@ class CCIRoleAssignment(models.Model):
         indexes = [models.Index(fields=["institution", "user", "is_active"])]
 
 
+class CCICredential(models.Model):
+    """CCI-admin-issued sign-in, intentionally separate from a RhemaVoice password."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name="cci_credentials")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cci_credentials")
+    username = models.CharField(max_length=64)
+    password = models.CharField(max_length=256)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="issued_cci_credentials")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["institution", "user"], name="unique_cci_credential_user"),
+            models.UniqueConstraint(fields=["institution", "username"], name="unique_cci_credential_username"),
+        ]
+
+
 class CCITask(models.Model):
     STATUS = [("not_started", "Not started"), ("in_progress", "In progress"), ("completed", "Completed"), ("cancelled", "Cancelled")]
 

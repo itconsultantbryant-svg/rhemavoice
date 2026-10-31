@@ -1,10 +1,12 @@
 from django.contrib import admin
+from django.contrib.auth.hashers import identify_hasher, make_password
 
 from .models import (
     AcademyEvent,
     AcademyMembership,
     CCIAnnouncement,
     CCIAuditEvent,
+    CCICredential,
     CCIRoleAssignment,
     CCIResource,
     CCIEvent,
@@ -29,6 +31,21 @@ from .models import (
 admin.site.register(Institution)
 admin.site.register(AcademyMembership)
 admin.site.register(CCIRoleAssignment)
+
+
+@admin.register(CCICredential)
+class CCICredentialAdmin(admin.ModelAdmin):
+    list_display = ("username", "user", "institution", "is_active", "last_login")
+    list_filter = ("institution", "is_active")
+    search_fields = ("username", "user__email")
+
+    def save_model(self, request, obj, form, change):
+        # Operators enter an issued password; never store it as plain text.
+        try:
+            identify_hasher(obj.password)
+        except ValueError:
+            obj.password = make_password(obj.password)
+        super().save_model(request, obj, form, change)
 admin.site.register(CCITask)
 admin.site.register(CCIAnnouncement)
 admin.site.register(CCIAuditEvent)

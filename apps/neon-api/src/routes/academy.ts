@@ -1,6 +1,7 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { count, one, query, uuid } from "../db";
-import { requireUser } from "../auth";
+import { issueCciAccessToken, requireUser, verifyCciAccessToken } from "../auth";
+import { hashPassword, verifyPassword } from "../password";
 import { detail, fieldError, forbidden, notFound, respond } from "../http";
 import { iso, num } from "../serializers";
 
@@ -901,11 +902,8 @@ function emptyCourseRow(): CourseRow {
   };
 }
 
-// CCI is an Academy program, not a second account system. These routes use the
-// Academy membership as the entry gate and CCI assignments for program duties.
-// CCI deliberately has one operational authority: administrator. Teachers,
-// advisors, and students have only course/learner permissions; there is no
-// separate management dashboard or management role.
+// CCI has its own credentials and session. A RhemaVoice session identifies the
+// person, but never authorizes the person to enter a CCI workspace.
 const CCI_MANAGERS = new Set(["administrator"]);
 const CCI_ANNOUNCERS = new Set(["administrator"]);
 const CCI_ROLE_MANAGERS = new Set(["administrator"]);
@@ -924,11 +922,13 @@ function cciWorkspaceRole(ctx: CCIContext, user: { is_superuser: boolean; roles:
   return "student";
 }
 
-async function cciContext(code: string, user: { id: string; is_superuser: boolean; roles: string[] }): Promise<CCIContext | null> {
+async function cciContext(c: Context, code: string, user: { id: string; is_superuser: boolean; roles: string[] }): Promise<CCIContext | null> {
   const institution = await one<InstitutionRow>(
     `select ${INSTITUTION_COLUMNS} from academy_institution where code = $1 and is_active = true`, [code],
   );
   if (!institution) return null;
+  const cciToken = c.req.header("X-CCI-Authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!cciToken || !(await verifyCciAccessToken(cciToken, user.id, institution.id))) return null;
   const member = await one<{ id: string }>(
     `select id from academy_academymembership where institution_id = $1 and user_id = $2 and is_active = true`,
     [institution.id, user.id],
@@ -947,6 +947,24 @@ async function cciContext(code: string, user: { id: string; is_superuser: boolea
   const isStaff = isPlatformAdmin || roles.some((role) => role !== "student");
   return { institution, roles, canManage: isPlatformAdmin || roles.some((role) => CCI_MANAGERS.has(role)), isStaff };
 }
+
+academyRoutes.post("/institutions/:code/cci/login/", async (c) => {
+  const auth = await requireUser(c);
+  if (!auth.ok) return respond(c, auth.response);
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const username = String(body.username ?? "").trim().toLowerCase();
+  const password = String(body.password ?? "");
+  if (!username || !password) return respond(c, fieldError({ detail: ["Enter your CCI username and password."] }));
+  const institution = await one<InstitutionRow>(`select ${INSTITUTION_COLUMNS} from academy_institution where code = $1 and is_active = true`, [c.req.param("code")]);
+  if (!institution) return respond(c, notFound("CCI program not found."));
+  const credential = await one<{ password: string }>(
+    `select password from academy_ccicredential where institution_id = $1 and user_id = $2 and username = $3 and is_active = true`,
+    [institution.id, auth.user.id, username],
+  );
+  if (!credential || !verifyPassword(password, credential.password)) return respond(c, forbidden("Invalid CCI credentials."));
+  await query(`update academy_ccicredential set last_login = now() where institution_id = $1 and user_id = $2`, [institution.id, auth.user.id]);
+  return c.json({ access: await issueCciAccessToken(auth.user.id, institution.id), expires_in: 1800 });
+});
 
 async function cciAudit(institutionId: string, actorId: string, action: string, targetType: string, targetId: string, meta: object = {}) {
   await query(
@@ -967,7 +985,7 @@ function serializeCCITask(row: { id: string; title: string; description: string;
 academyRoutes.get("/institutions/:code/cci/command-center/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const taskScope = ctx.isStaff ? "institution_id = $1" : "institution_id = $1 and assigned_to_id = $2";
   const taskArgs = ctx.isStaff ? [ctx.institution.id] : [ctx.institution.id, auth.user.id];
@@ -994,7 +1012,7 @@ academyRoutes.get("/institutions/:code/cci/command-center/", async (c) => {
 academyRoutes.get("/institutions/:code/cci/workspace/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
 
   const role = cciWorkspaceRole(ctx, auth.user);
@@ -1058,7 +1076,7 @@ academyRoutes.get("/institutions/:code/cci/workspace/", async (c) => {
 academyRoutes.post("/institutions/:code/cci/tasks/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !ctx.canManage) return respond(c, forbidden("CCI task-management permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const title = String(body.title ?? "").trim();
@@ -1081,7 +1099,7 @@ academyRoutes.post("/institutions/:code/cci/tasks/", async (c) => {
 academyRoutes.patch("/institutions/:code/cci/tasks/:id/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !UUID_RE.test(c.req.param("id"))) return respond(c, notFound());
   const task = await one<{ id: string; assigned_to: string | null }>(`select id, assigned_to_id as assigned_to from academy_ccitask where id = $1 and institution_id = $2`, [c.req.param("id"), ctx.institution.id]);
   if (!task) return respond(c, notFound());
@@ -1097,7 +1115,7 @@ academyRoutes.patch("/institutions/:code/cci/tasks/:id/", async (c) => {
 academyRoutes.post("/institutions/:code/cci/announcements/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !(ctx.canManage && (ctx.roles.some((role) => CCI_ANNOUNCERS.has(role)) || auth.user.is_superuser))) return respond(c, forbidden("CCI announcement permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const title = String(body.title ?? "").trim(); const message = String(body.body ?? "").trim(); const audience = String(body.audience ?? "all");
@@ -1111,7 +1129,7 @@ academyRoutes.post("/institutions/:code/cci/announcements/", async (c) => {
 academyRoutes.get("/institutions/:code/cci/members/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !ctx.canManage) return respond(c, forbidden("CCI staff permission is required."));
   const rows = await query<{
     user_id: string; email: string; first_name: string; last_name: string; display_name: string;
@@ -1141,16 +1159,20 @@ academyRoutes.get("/institutions/:code/cci/members/", async (c) => {
 academyRoutes.post("/institutions/:code/cci/members/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
    const roleManager = ctx && (auth.user.is_superuser || ctx.roles.some((role) => CCI_ROLE_MANAGERS.has(role)));
   if (!roleManager) return respond(c, forbidden("CCI member-management permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const email = String(body.email ?? "").trim().toLowerCase();
   const membershipRole = String(body.membership_role ?? "student");
   const cciRole = String(body.cci_role ?? "student");
+  const username = String(body.cci_username ?? "").trim().toLowerCase();
+  const password = String(body.cci_password ?? "");
   if (!email || !email.includes("@")) return respond(c, fieldError({ email: ["Enter a valid RhemaVoice email address."] }));
    if (!["student", "mentor", "instructor", "staff", "academy_admin"].includes(membershipRole)) return respond(c, fieldError({ membership_role: ["Enter a valid academy role."] }));
   if (!CCI_ROLES.has(cciRole)) return respond(c, fieldError({ cci_role: ["Enter a valid CCI role."] }));
+  if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username)) return respond(c, fieldError({ cci_username: ["Use 3–64 lowercase letters, numbers, dots, hyphens, or underscores."] }));
+  if (password.length < 12) return respond(c, fieldError({ cci_password: ["Set a temporary CCI password with at least 12 characters."] }));
   const user = await one<{ id: string; email: string }>(`select id, email from users_user where lower(email) = $1 and is_active = true and approval_status = 'approved'`, [email]);
    if (!user) return respond(c, detail("This user must first create and verify a RhemaVoice account."));
   const membership = await one<{ id: string }>(`select id from academy_academymembership where institution_id = $1 and user_id = $2`, [ctx!.institution.id, user.id]);
@@ -1162,13 +1184,16 @@ academyRoutes.post("/institutions/:code/cci/members/", async (c) => {
   const assignment = await one<{ id: string }>(`select id from academy_cciroleassignment where institution_id = $1 and user_id = $2 and role = $3`, [ctx!.institution.id, user.id, cciRole]);
   if (assignment) await query(`update academy_cciroleassignment set is_active = true, assigned_by_id = $1 where id = $2`, [auth.user.id, assignment.id]);
   else await query(`insert into academy_cciroleassignment (id, institution_id, user_id, role, is_active, assigned_by_id, assigned_at) values ($1,$2,$3,$4,true,$5,now())`, [uuid(), ctx!.institution.id, user.id, cciRole, auth.user.id]);
-  await cciAudit(ctx!.institution.id, auth.user.id, "cci.member.enrolled", "user", user.id, { email, membership_role: membershipRole, cci_role: cciRole });
-  return c.json({ user_id: user.id, email: user.email, membership_role: membershipRole, cci_role: cciRole }, 201);
+  const existingCredential = await one<{ id: string }>(`select id from academy_ccicredential where institution_id = $1 and user_id = $2`, [ctx!.institution.id, user.id]);
+  if (existingCredential) await query(`update academy_ccicredential set username = $1, password = $2, is_active = true, updated_at = now() where id = $3`, [username, hashPassword(password), existingCredential.id]);
+  else await query(`insert into academy_ccicredential (id, institution_id, user_id, username, password, is_active, created_by_id, created_at, updated_at) values ($1,$2,$3,$4,$5,true,$6,now(),now())`, [uuid(), ctx!.institution.id, user.id, username, hashPassword(password), auth.user.id]);
+  await cciAudit(ctx!.institution.id, auth.user.id, "cci.member.enrolled", "user", user.id, { email, membership_role: membershipRole, cci_role: cciRole, cci_username: username });
+  return c.json({ user_id: user.id, email: user.email, membership_role: membershipRole, cci_role: cciRole, cci_username: username }, 201);
 });
 
 academyRoutes.get("/institutions/:code/cci/courses/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const staff = ctx.isStaff;
   const rows = await query<{ id: string; title: string; summary: string; level: string; week_number: number; duration_hours: number; is_published: boolean; students: number; staff: number }>(
     `select c.id, c.title, c.summary, c.level, c.week_number, c.duration_hours, c.is_published,
@@ -1180,7 +1205,7 @@ academyRoutes.get("/institutions/:code/cci/courses/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/courses/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user)) return respond(c, forbidden("CCI management or administration permission is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user)) return respond(c, forbidden("CCI management or administration permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const title = String(body.title ?? "").trim(); if (!title || title.length > 200) return respond(c, fieldError({ title: ["Enter a course title of 200 characters or fewer."] }));
   const week = Math.max(1, Number(body.week_number ?? 1) || 1); const hours = Math.max(1, Number(body.duration_hours ?? 1) || 1);
@@ -1192,7 +1217,7 @@ academyRoutes.post("/institutions/:code/cci/courses/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/courses/:id/assignments/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user) || !UUID_RE.test(c.req.param("id"))) return respond(c, forbidden("CCI management or administration permission is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user) || !UUID_RE.test(c.req.param("id"))) return respond(c, forbidden("CCI management or administration permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const userId = String(body.user_id ?? ""); const role = String(body.role ?? "");
    if (!UUID_RE.test(userId) || !["teacher", "advisor"].includes(role)) return respond(c, fieldError({ role: ["Choose a teacher or advisor."] }));
   const course = await one<{ id: string }>(`select id from academy_course where id=$1 and institution_id=$2`, [c.req.param("id"), ctx!.institution.id]);
@@ -1205,7 +1230,7 @@ academyRoutes.post("/institutions/:code/cci/courses/:id/assignments/", async (c)
 
 academyRoutes.post("/institutions/:code/cci/courses/:id/students/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user) || !UUID_RE.test(c.req.param("id"))) return respond(c, forbidden("CCI management or administration permission is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user) || !UUID_RE.test(c.req.param("id"))) return respond(c, forbidden("CCI management or administration permission is required."));
   const userId = String(((await c.req.json().catch(() => ({}))) as Record<string, unknown>).user_id ?? "");
   if (!UUID_RE.test(userId)) return respond(c, fieldError({ user_id: ["Enter a valid student."] }));
   const course = await one<{ id: string }>(`select id from academy_course where id=$1 and institution_id=$2`, [c.req.param("id"), ctx!.institution.id]);
@@ -1260,7 +1285,7 @@ async function canAccessCourse(ctx: CCIContext, userId: string, courseId: string
 
 academyRoutes.get("/institutions/:code/cci/courses/:id/content/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const courseId = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const courseId = c.req.param("id");
   if (!ctx || !UUID_RE.test(courseId) || !(await canAccessCourse(ctx, auth.user.id, courseId, auth.user.is_superuser))) return respond(c, forbidden("You are not enrolled in or assigned to this course."));
   const content = await query<{ id: string; title: string; body: string; content_type: string; created_at: Date }>(
     `select id, title, body, content_type, created_at from academy_coursecontent where course_id = $1 order by created_at desc`, [courseId],
@@ -1278,7 +1303,7 @@ academyRoutes.get("/institutions/:code/cci/courses/:id/content/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/courses/:id/content/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const courseId = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const courseId = c.req.param("id");
   if (!ctx || !UUID_RE.test(courseId) || !(await isCourseTeacherOrAdmin(ctx, auth.user.id, courseId, auth.user.is_superuser))) return respond(c, forbidden("Only the CCI administrator or assigned teacher can publish course content."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const title = String(body.title ?? "").trim(); const contentType = String(body.content_type ?? "content");
   if (!title || title.length > 200 || !["content", "material"].includes(contentType)) return respond(c, fieldError({ title: ["Enter a title and valid content type."] }));
@@ -1290,7 +1315,7 @@ academyRoutes.post("/institutions/:code/cci/courses/:id/content/", async (c) => 
 
 academyRoutes.post("/institutions/:code/cci/courses/:id/assignments/create/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const courseId = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const courseId = c.req.param("id");
   if (!ctx || !UUID_RE.test(courseId) || !(await isCourseTeacherOrAdmin(ctx, auth.user.id, courseId, auth.user.is_superuser))) return respond(c, forbidden("Only the CCI administrator or assigned teacher can create course assignments."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const title = String(body.title ?? "").trim(); const dueAt = body.due_at ? new Date(String(body.due_at)) : null; const maxMarks = Number(body.max_marks ?? 100);
   if (!title || title.length > 200 || (dueAt && Number.isNaN(dueAt.getTime())) || !Number.isInteger(maxMarks) || maxMarks < 1) return respond(c, detail("Enter a valid title, due date, and maximum mark."));
@@ -1305,7 +1330,7 @@ academyRoutes.get("/attachments/:id/download/", async (c) => {
   const id = c.req.param("id"); if (!UUID_RE.test(id)) return respond(c, notFound());
   const file = await one<{ id: string; institution_id: string; owner_type: string; owner_id: string; file_name: string; content_type: string; data: Uint8Array }>(`select id, institution_id, owner_type, owner_id, file_name, content_type, data from academy_fileattachment where id = $1`, [id]);
   if (!file) return respond(c, notFound());
-  const ctx = await cciContext((await one<{ code: string }>(`select code from academy_institution where id = $1`, [file.institution_id]))?.code ?? "", auth.user);
+  const ctx = await cciContext(c, (await one<{ code: string }>(`select code from academy_institution where id = $1`, [file.institution_id]))?.code ?? "", auth.user);
   if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   let courseId: string | null = null;
   if (file.owner_type === "course_content") courseId = (await one<{ course_id: string }>(`select course_id from academy_coursecontent where id = $1`, [file.owner_id]))?.course_id ?? null;
@@ -1331,14 +1356,14 @@ academyRoutes.get("/attachments/:id/download/", async (c) => {
 
 academyRoutes.get("/institutions/:code/cci/live-classes/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const rows = await query<LiveClassRow>(`select l.id,l.title,l.instructor_name,l.starts_at,l.status,l.viewer_count,l.week_number,l.meeting_url,l.course_id,l.host_id from academy_liveclass l where l.institution_id=$1 ${ctx.isStaff ? "" : "and exists (select 1 from academy_cciliveclassparticipant p where p.live_class_id=l.id and p.user_id=$2)"} order by l.starts_at desc`, ctx.isStaff ? [ctx.institution.id] : [ctx.institution.id, auth.user.id]);
   return c.json(rows.map((row) => ({ ...serializeLiveClass(row), meeting_url: row.meeting_url ?? "", course_id: row.course_id ?? null, host_id: row.host_id ?? null, join_available: row.status === "live" && /^https:\/\//.test(row.meeting_url ?? "") })));
 });
 
 academyRoutes.post("/institutions/:code/cci/live-classes/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user)) return respond(c, forbidden("CCI management or administration permission is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!canManageCCIProgram(ctx, auth.user)) return respond(c, forbidden("CCI management or administration permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const title=String(body.title??"").trim(); const meetingUrl=String(body.meeting_url??"").trim(); const hostId=String(body.host_id??""); const courseId=body.course_id ? String(body.course_id) : null;
   const startsAt=body.starts_at ? new Date(String(body.starts_at)) : null;
   if (!title || !startsAt || Number.isNaN(startsAt.getTime()) || !/^https:\/\//.test(meetingUrl) || !UUID_RE.test(hostId)) return respond(c, detail("Title, start time, approved HTTPS meeting URL, and host are required."));
@@ -1351,14 +1376,14 @@ academyRoutes.post("/institutions/:code/cci/live-classes/", async (c) => {
 });
 
 academyRoutes.post("/institutions/:code/cci/live-classes/:id/participants/", async (c) => {
-  const auth=await requireUser(c); if(!auth.ok)return respond(c,auth.response); const ctx=await cciContext(c.req.param("code"),auth.user); if(!canManageCCIProgram(ctx,auth.user)||!UUID_RE.test(c.req.param("id")))return respond(c,forbidden("CCI management or administration permission is required."));
+  const auth=await requireUser(c); if(!auth.ok)return respond(c,auth.response); const ctx=await cciContext(c, c.req.param("code"),auth.user); if(!canManageCCIProgram(ctx,auth.user)||!UUID_RE.test(c.req.param("id")))return respond(c,forbidden("CCI management or administration permission is required."));
   const body=(await c.req.json().catch(()=>({}))) as Record<string,unknown>; const userId=String(body.user_id??""); const role=String(body.role??"student"); if(!UUID_RE.test(userId)||!["student","teacher","mentor"].includes(role))return respond(c,detail("Choose an active participant role."));
   const live=await one<{id:string}>(`select id from academy_liveclass where id=$1 and institution_id=$2`,[c.req.param("id"),ctx!.institution.id]); const member=await one<{id:string}>(`select id from academy_academymembership where institution_id=$1 and user_id=$2 and is_active=true`,[ctx!.institution.id,userId]); if(!live||!member)return respond(c,notFound());
   await query(`insert into academy_cciliveclassparticipant (id,live_class_id,user_id,role,created_at) values ($1,$2,$3,$4,now()) on conflict (live_class_id,user_id) do update set role=excluded.role`,[uuid(),live.id,userId,role]); await cciAudit(ctx!.institution.id,auth.user.id,"cci.live_class.participant_assigned","live_class",live.id,{user_id:userId,role}); return c.json({live_class_id:live.id,user_id:userId,role},201);
 });
 
 academyRoutes.patch("/institutions/:code/cci/live-classes/:id/", async (c) => {
-  const auth=await requireUser(c); if(!auth.ok)return respond(c,auth.response); const ctx=await cciContext(c.req.param("code"),auth.user); const id=c.req.param("id"); if(!ctx||!UUID_RE.test(id))return respond(c,notFound());
+  const auth=await requireUser(c); if(!auth.ok)return respond(c,auth.response); const ctx=await cciContext(c, c.req.param("code"),auth.user); const id=c.req.param("id"); if(!ctx||!UUID_RE.test(id))return respond(c,notFound());
   const live=await one<{id:string;host_id:string|null}>(`select id,host_id from academy_liveclass where id=$1 and institution_id=$2`,[id,ctx.institution.id]); if(!live)return respond(c,notFound());
   if(!canManageCCIProgram(ctx,auth.user)&&live.host_id!==auth.user.id)return respond(c,forbidden("Only CCI management, administration, or the assigned host can control this class."));
   const status=String(((await c.req.json().catch(()=>({}))) as Record<string,unknown>).status??""); if(!["scheduled","live","ended"].includes(status))return respond(c,fieldError({status:["Choose scheduled, live, or ended."]}));
@@ -1368,7 +1393,7 @@ academyRoutes.patch("/institutions/:code/cci/live-classes/:id/", async (c) => {
 academyRoutes.post("/institutions/:code/cci/members/:userId/roles/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   const roleManager = ctx && (auth.user.is_superuser || ctx.roles.some((role) => CCI_ROLE_MANAGERS.has(role)));
   if (!roleManager) return respond(c, forbidden("CCI role-assignment permission is required."));
   const userId = c.req.param("userId");
@@ -1399,7 +1424,7 @@ academyRoutes.post("/institutions/:code/cci/members/:userId/roles/", async (c) =
 academyRoutes.delete("/institutions/:code/cci/members/:userId/roles/:role/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   const roleManager = ctx && (auth.user.is_superuser || ctx.roles.some((role) => CCI_ROLE_MANAGERS.has(role)));
   const userId = c.req.param("userId"); const role = c.req.param("role");
   if (!roleManager) return respond(c, forbidden("CCI role-assignment permission is required."));
@@ -1436,7 +1461,7 @@ function cciStorageEnabled(): boolean {
 academyRoutes.get("/institutions/:code/cci/resources/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const canReview = auth.user.is_superuser || ctx.roles.some((role) => CCI_RESOURCE_REVIEWERS.has(role));
   const rows = await query<CCIResourceRow>(
@@ -1453,7 +1478,7 @@ academyRoutes.get("/institutions/:code/cci/resources/", async (c) => {
 academyRoutes.post("/institutions/:code/cci/resources/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !ctx.canManage) return respond(c, forbidden("CCI resource-management permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const title = String(body.title ?? "").trim(); const category = String(body.category ?? "general").trim() || "general";
@@ -1474,7 +1499,7 @@ academyRoutes.post("/institutions/:code/cci/resources/", async (c) => {
 academyRoutes.post("/institutions/:code/cci/resources/:id/submit/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const id = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const id = c.req.param("id");
   if (!ctx || !UUID_RE.test(id)) return respond(c, notFound());
   const resource = await one<{ id: string; created_by_id: string; status: string }>(`select id, created_by_id, status from academy_cciresource where id = $1 and institution_id = $2`, [id, ctx.institution.id]);
   if (!resource) return respond(c, notFound());
@@ -1488,7 +1513,7 @@ academyRoutes.post("/institutions/:code/cci/resources/:id/submit/", async (c) =>
 academyRoutes.post("/institutions/:code/cci/resources/:id/review/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const id = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const id = c.req.param("id");
   const canReview = ctx && (auth.user.is_superuser || ctx.roles.some((role) => CCI_RESOURCE_REVIEWERS.has(role)));
   if (!canReview || !UUID_RE.test(id)) return respond(c, forbidden("CCI resource-review permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const status = String(body.status ?? "");
@@ -1508,7 +1533,7 @@ function serializeCCIEvent(row: CCIEventRow) { return { ...row, starts_at: iso(r
 academyRoutes.get("/institutions/:code/cci/events/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const rows = await query<CCIEventRow>(
     `select id, title, description, audience, starts_at, ends_at, location, status, created_at from academy_ccievent
@@ -1521,7 +1546,7 @@ academyRoutes.get("/institutions/:code/cci/events/", async (c) => {
 academyRoutes.post("/institutions/:code/cci/events/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !ctx.canManage) return respond(c, forbidden("CCI event-management permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const title = String(body.title ?? "").trim(); const startsAt = new Date(String(body.starts_at ?? ""));
@@ -1536,7 +1561,7 @@ academyRoutes.post("/institutions/:code/cci/events/", async (c) => {
 academyRoutes.patch("/institutions/:code/cci/events/:id/", async (c) => {
   const auth = await requireUser(c);
   if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const id = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const id = c.req.param("id");
   if (!ctx || !ctx.canManage || !UUID_RE.test(id)) return respond(c, forbidden("CCI event-management permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const status = String(body.status ?? "");
   if (!["scheduled", "cancelled", "completed"].includes(status)) return respond(c, fieldError({ status: ["Enter a valid event status."] }));
@@ -1585,7 +1610,7 @@ academyRoutes.post("/institutions/:code/cci/admissions/me/submit/", async (c) =>
 
 academyRoutes.get("/institutions/:code/cci/admissions/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !(auth.user.is_superuser || ctx.roles.some((role) => CCI_ADMISSIONS_STAFF.has(role)))) return respond(c, forbidden("CCI admissions permission is required."));
   const rows = await query<AdmissionRow>(`select a.id, a.applicant_id, a.status, a.fields, a.reviewer_note, a.submitted_at, a.created_at, a.updated_at, u.email, u.display_name from academy_cciadmissionapplication a join users_user u on u.id = a.applicant_id where a.institution_id = $1 order by a.updated_at desc`, [ctx.institution.id]);
   return c.json(rows.map((row) => serializeAdmission(row, true)));
@@ -1593,7 +1618,7 @@ academyRoutes.get("/institutions/:code/cci/admissions/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/admissions/:id/review/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const id = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const id = c.req.param("id");
   if (!ctx || !(auth.user.is_superuser || ctx.roles.some((role) => CCI_ADMISSIONS_STAFF.has(role))) || !UUID_RE.test(id)) return respond(c, forbidden("CCI admissions permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const status = String(body.status ?? "");
   if (!["under_review", "accepted", "rejected"].includes(status)) return respond(c, fieldError({ status: ["Choose a valid review status."] }));
@@ -1611,7 +1636,7 @@ type AttendanceRow = { id: string; student_id: string; event_id: string | null; 
 
 academyRoutes.get("/institutions/:code/cci/formation/me/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const notes = await query<FormationRow>(`select id, student_id, summary, visibility, created_at from academy_cciformationnote where institution_id = $1 and student_id = $2 and visibility = 'student' order by created_at desc`, [ctx.institution.id, auth.user.id]);
   const attendance = await query<AttendanceRow>(`select id, student_id, event_id, status, note, recorded_at from academy_cciattendancerecord where institution_id = $1 and student_id = $2 order by recorded_at desc`, [ctx.institution.id, auth.user.id]);
   return c.json({ formation_notes: notes.map((n) => ({ ...n, created_at: iso(n.created_at) })), attendance: attendance.map((r) => ({ ...r, recorded_at: iso(r.recorded_at) })) });
@@ -1619,7 +1644,7 @@ academyRoutes.get("/institutions/:code/cci/formation/me/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/students/:studentId/formation/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const studentId = c.req.param("studentId");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const studentId = c.req.param("studentId");
   if (!ctx || !(auth.user.is_superuser || ctx.roles.some((role) => CCI_FORMATION_STAFF.has(role))) || !UUID_RE.test(studentId)) return respond(c, forbidden("CCI formation permission is required."));
   const member = await one<{ id: string }>(`select id from academy_academymembership where institution_id = $1 and user_id = $2 and is_active = true`, [ctx.institution.id, studentId]);
   if (!member) return respond(c, notFound("CCI student not found."));
@@ -1632,7 +1657,7 @@ academyRoutes.post("/institutions/:code/cci/students/:studentId/formation/", asy
 
 academyRoutes.post("/institutions/:code/cci/students/:studentId/attendance/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const studentId = c.req.param("studentId");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const studentId = c.req.param("studentId");
   if (!ctx || !(auth.user.is_superuser || ctx.roles.some((role) => CCI_FORMATION_STAFF.has(role))) || !UUID_RE.test(studentId)) return respond(c, forbidden("CCI attendance permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const status = String(body.status ?? ""); const eventId = body.event_id ? String(body.event_id) : null;
   if (!["present", "late", "absent", "excused"].includes(status) || (eventId && !UUID_RE.test(eventId))) return respond(c, detail("A valid attendance status and optional event are required."));
@@ -1650,7 +1675,7 @@ async function canViewCCIStudent(ctx: CCIContext, userId: string, studentId: str
 
 academyRoutes.get("/institutions/:code/cci/students/:studentId/records/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const studentId = c.req.param("studentId");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const studentId = c.req.param("studentId");
   if (!ctx || !UUID_RE.test(studentId)) return respond(c, notFound());
   if (!(await canViewCCIStudent(ctx, auth.user.id, studentId, auth.user.is_superuser))) return respond(c, forbidden("You do not have permission to view this student record."));
   const student = await one<{ id: string; email: string; display_name: string; first_name: string; last_name: string }>(`select u.id, u.email, u.display_name, u.first_name, u.last_name from users_user u join academy_academymembership m on m.user_id = u.id where u.id = $1 and m.institution_id = $2 and m.is_active = true`, [studentId, ctx.institution.id]);
@@ -1664,7 +1689,7 @@ academyRoutes.get("/institutions/:code/cci/students/:studentId/records/", async 
 // view the program list; no confidential formation notes are returned here.
 academyRoutes.get("/institutions/:code/cci/mentees/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !(auth.user.is_superuser || ctx.roles.includes("administrator") || ctx.roles.includes("advisor"))) return respond(c, forbidden("CCI advisor access is required."));
   const rows = await query<{ id: string; display_name: string; first_name: string; last_name: string; email: string; notes: string; rating: string }>(
     `select u.id, u.display_name, u.first_name, u.last_name, u.email, ma.notes, ma.rating
@@ -1681,7 +1706,7 @@ type GradeRow = { submission_id: string; student_id: string; assignment_id: stri
 
 academyRoutes.get("/institutions/:code/cci/gradebook/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !(auth.user.is_superuser || ctx.roles.some((role) => CCI_GRADERS.has(role)))) return respond(c, forbidden("CCI grading permission is required."));
   const rows = await query<GradeRow>(`select s.id as submission_id, s.user_id as student_id, a.id as assignment_id, a.title as assignment_title, a.max_marks, s.status, s.score, s.submitted_at, s.notes from academy_assignmentsubmission s join academy_assignment a on a.id = s.assignment_id where a.institution_id = $1 and s.status in ('submitted', 'graded') ${auth.user.is_superuser || ctx.roles.includes("administrator") ? "" : "and exists (select 1 from academy_ccicourseassignment ca where ca.course_id = a.course_id and ca.user_id = $2 and ca.role = 'teacher')"} order by s.submitted_at desc`, auth.user.is_superuser || ctx.roles.includes("administrator") ? [ctx.institution.id] : [ctx.institution.id, auth.user.id]);
   return c.json(rows.map((r) => ({ ...r, submitted_at: iso(r.submitted_at) })));
@@ -1689,14 +1714,14 @@ academyRoutes.get("/institutions/:code/cci/gradebook/", async (c) => {
 
 academyRoutes.get("/institutions/:code/cci/grades/me/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const rows = await query<GradeRow>(`select s.id as submission_id, s.user_id as student_id, a.id as assignment_id, a.title as assignment_title, a.max_marks, s.status, s.score, s.submitted_at, s.notes from academy_assignmentsubmission s join academy_assignment a on a.id = s.assignment_id where a.institution_id = $1 and s.user_id = $2 and s.status = 'graded' order by s.submitted_at desc`, [ctx.institution.id, auth.user.id]);
   return c.json(rows.map((r) => ({ ...r, submitted_at: iso(r.submitted_at) })));
 });
 
 academyRoutes.post("/institutions/:code/cci/submissions/:id/grade/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const id = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const id = c.req.param("id");
   if (!ctx || !(auth.user.is_superuser || ctx.roles.some((role) => CCI_GRADERS.has(role))) || !UUID_RE.test(id)) return respond(c, forbidden("CCI grading permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const score = Number(body.score);
   if (!Number.isInteger(score) || score < 0) return respond(c, fieldError({ score: ["Enter a non-negative whole-number score."] }));
@@ -1713,7 +1738,7 @@ academyRoutes.post("/institutions/:code/cci/submissions/:id/grade/", async (c) =
 const CCI_REPORT_VIEWERS = new Set(["administrator"]);
 academyRoutes.get("/institutions/:code/cci/reports/overview/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !(auth.user.is_superuser || ctx.roles.some((role) => CCI_REPORT_VIEWERS.has(role)))) return respond(c, forbidden("CCI reporting permission is required."));
   const [members, tasks, admissions, attendance, grades] = await Promise.all([
     count(`select count(*) as n from academy_academymembership where institution_id = $1 and is_active = true`, [ctx.institution.id]),
@@ -1728,7 +1753,7 @@ academyRoutes.get("/institutions/:code/cci/reports/overview/", async (c) => {
 
 academyRoutes.get("/institutions/:code/cci/staff-connect/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !ctx.isStaff) return respond(c, forbidden("Active CCI staff membership is required."));
   const rows = await query<{ id: string; body: string; created_at: Date; display_name: string; first_name: string; last_name: string; email: string }>(`select p.id, p.body, p.created_at, u.display_name, u.first_name, u.last_name, u.email from academy_ccistaffpost p join users_user u on u.id = p.author_id where p.institution_id = $1 and p.is_archived = false order by p.created_at desc limit 100`, [ctx.institution.id]);
   return c.json(rows.map((r) => ({ id: r.id, body: r.body, author: r.display_name || `${r.first_name} ${r.last_name}`.trim() || r.email, created_at: iso(r.created_at) })));
@@ -1736,7 +1761,7 @@ academyRoutes.get("/institutions/:code/cci/staff-connect/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/staff-connect/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user);
+  const ctx = await cciContext(c, c.req.param("code"), auth.user);
   if (!ctx || !ctx.isStaff) return respond(c, forbidden("Active CCI staff membership is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const message = String(body.body ?? "").trim();
   if (!message || message.length > 5000) return respond(c, fieldError({ body: ["Enter a message of 5,000 characters or fewer."] }));
@@ -1748,7 +1773,7 @@ academyRoutes.post("/institutions/:code/cci/staff-connect/", async (c) => {
 const CCI_MODERATORS = new Set(["administrator"]);
 academyRoutes.get("/institutions/:code/cci/bonding/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const moderator = auth.user.is_superuser || ctx.roles.some((role) => CCI_MODERATORS.has(role));
   const rows = await query<{ id: string; body: string; status: string; author_id: string; created_at: Date; display_name: string; email: string }>(moderator ? `select p.id, p.body, p.status, p.author_id, p.created_at, u.display_name, u.email from academy_ccibondingpost p join users_user u on u.id = p.author_id where p.institution_id = $1 order by p.created_at desc` : `select p.id, p.body, p.status, p.author_id, p.created_at, u.display_name, u.email from academy_ccibondingpost p join users_user u on u.id = p.author_id where p.institution_id = $1 and (p.status = 'approved' or p.author_id = $2) order by p.created_at desc`, moderator ? [ctx.institution.id] : [ctx.institution.id, auth.user.id]);
   return c.json({ can_moderate: moderator, posts: rows.map((r) => ({ id: r.id, body: r.body, status: r.status, is_mine: r.author_id === auth.user.id, author: r.display_name || r.email, created_at: iso(r.created_at) })) });
@@ -1756,7 +1781,7 @@ academyRoutes.get("/institutions/:code/cci/bonding/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/bonding/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const message = String(body.body ?? "").trim();
   if (!message || message.length > 3000) return respond(c, fieldError({ body: ["Enter a post of 3,000 characters or fewer."] }));
   const id = uuid(); await query(`insert into academy_ccibondingpost (id, institution_id, author_id, body, status, moderation_note, created_at) values ($1,$2,$3,$4,'pending','',now())`, [id, ctx.institution.id, auth.user.id, message]);
@@ -1766,7 +1791,7 @@ academyRoutes.post("/institutions/:code/cci/bonding/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/bonding/:id/moderate/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); const id = c.req.param("id");
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); const id = c.req.param("id");
   if (!ctx || !(auth.user.is_superuser || ctx.roles.some((role) => CCI_MODERATORS.has(role))) || !UUID_RE.test(id)) return respond(c, forbidden("CCI moderation permission is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const status = String(body.status ?? "");
   if (!["approved", "rejected"].includes(status)) return respond(c, fieldError({ status: ["Choose approved or rejected."] }));
@@ -1782,7 +1807,7 @@ function canManageSupport(ctx: CCIContext, user: { is_superuser: boolean }) { re
 
 academyRoutes.get("/institutions/:code/cci/support/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const manager = canManageSupport(ctx, auth.user);
   const rows = await query<SupportRequestRow>(manager ? `select r.id, r.requester_id, r.subject, r.category, r.description, r.status, r.course_id, r.created_at, r.updated_at, u.display_name as requester_name, u.email as requester_email from academy_ccisupportrequest r join users_user u on u.id=r.requester_id where r.institution_id=$1 order by r.updated_at desc` : `select id, requester_id, subject, category, description, status, course_id, created_at, updated_at from academy_ccisupportrequest where institution_id=$1 and requester_id=$2 order by updated_at desc`, manager ? [ctx.institution.id] : [ctx.institution.id, auth.user.id]);
   return c.json({ can_manage: manager, requests: rows.map((row) => serializeSupportRequest(row, manager)) });
@@ -1790,7 +1815,7 @@ academyRoutes.get("/institutions/:code/cci/support/", async (c) => {
 
 academyRoutes.post("/institutions/:code/cci/support/", async (c) => {
   const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response);
-  const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
+  const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx) return respond(c, forbidden("Active CCI membership is required."));
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const subject = String(body.subject ?? "").trim(); const category = String(body.category ?? "general").trim(); const description = String(body.description ?? "").trim(); const courseId = body.course_id ? String(body.course_id) : null;
   if (!subject || subject.length > 200 || !description || description.length > 5000 || category.length > 80 || (courseId && !UUID_RE.test(courseId))) return respond(c, detail("Enter a valid subject, category, description, and optional course."));
   if (courseId && !await one<{ id: string }>(`select id from academy_course where id=$1 and institution_id=$2`, [courseId, ctx.institution.id])) return respond(c, fieldError({ course_id: ["Choose a CCI course."] }));
@@ -1799,7 +1824,7 @@ academyRoutes.post("/institutions/:code/cci/support/", async (c) => {
 });
 
 academyRoutes.get("/institutions/:code/cci/support/:id/", async (c) => {
-  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response); const id = c.req.param("id"); const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx || !UUID_RE.test(id)) return respond(c, notFound()); const manager = canManageSupport(ctx, auth.user);
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response); const id = c.req.param("id"); const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx || !UUID_RE.test(id)) return respond(c, notFound()); const manager = canManageSupport(ctx, auth.user);
   const request = await one<SupportRequestRow>(`select r.id,r.requester_id,r.subject,r.category,r.description,r.status,r.course_id,r.created_at,r.updated_at,u.display_name as requester_name,u.email as requester_email from academy_ccisupportrequest r join users_user u on u.id=r.requester_id where r.id=$1 and r.institution_id=$2`, [id, ctx.institution.id]);
   if (!request || (!manager && request.requester_id !== auth.user.id)) return respond(c, notFound());
   const replies = await query<{ id: string; body: string; created_at: Date; author_id: string; display_name: string; email: string }>(`select p.id,p.body,p.created_at,p.author_id,u.display_name,u.email from academy_ccisupportreply p join users_user u on u.id=p.author_id where p.request_id=$1 order by p.created_at`, [id]);
@@ -1807,6 +1832,6 @@ academyRoutes.get("/institutions/:code/cci/support/:id/", async (c) => {
 });
 
 academyRoutes.post("/institutions/:code/cci/support/:id/replies/", async (c) => {
-  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response); const id = c.req.param("id"); const ctx = await cciContext(c.req.param("code"), auth.user); if (!ctx || !UUID_RE.test(id)) return respond(c, notFound()); const manager = canManageSupport(ctx, auth.user); const request = await one<{ id: string; requester_id: string }>(`select id,requester_id from academy_ccisupportrequest where id=$1 and institution_id=$2`, [id, ctx.institution.id]); if (!request || (!manager && request.requester_id !== auth.user.id)) return respond(c, notFound());
+  const auth = await requireUser(c); if (!auth.ok) return respond(c, auth.response); const id = c.req.param("id"); const ctx = await cciContext(c, c.req.param("code"), auth.user); if (!ctx || !UUID_RE.test(id)) return respond(c, notFound()); const manager = canManageSupport(ctx, auth.user); const request = await one<{ id: string; requester_id: string }>(`select id,requester_id from academy_ccisupportrequest where id=$1 and institution_id=$2`, [id, ctx.institution.id]); if (!request || (!manager && request.requester_id !== auth.user.id)) return respond(c, notFound());
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>; const message = String(body.body ?? "").trim(); if (!message || message.length > 5000) return respond(c, fieldError({ body: ["Enter a response of 5,000 characters or fewer."] })); const replyId = uuid(); await query(`insert into academy_ccisupportreply (id,request_id,author_id,body,created_at) values ($1,$2,$3,$4,now())`, [replyId, id, auth.user.id, message]); await query(`update academy_ccisupportrequest set status=$1,updated_at=now() where id=$2`, [manager ? "awaiting_response" : "in_progress", id]); return c.json({ id: replyId, body: message }, 201);
 });

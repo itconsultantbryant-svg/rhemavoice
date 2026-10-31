@@ -15,6 +15,8 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   setTheme: (theme: ThemePreference) => Promise<void>;
   getAccessToken: () => string | null;
+  setCciAccessToken: (institutionCode: string, token: string) => void;
+  clearCciAccessToken: (institutionCode: string) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -52,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem("rv_access");
           localStorage.removeItem("rv_refresh");
         },
+        getCciAccessToken: (institutionCode) => typeof window === "undefined" ? null : localStorage.getItem(`rv_cci_${institutionCode}`),
       }),
     []
   );
@@ -99,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshMe: async () => setUser(await api.auth.me()),
     logout: async () => {
       await api.auth.logout();
+      Object.keys(localStorage).filter((key) => key.startsWith("rv_cci_")).forEach((key) => localStorage.removeItem(key));
       setUser(null);
     },
     setTheme: async (theme) => {
@@ -106,6 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(updated);
     },
     getAccessToken: () => memory.access || (typeof window !== "undefined" ? localStorage.getItem("rv_access") : null),
+    setCciAccessToken: (institutionCode, token) => localStorage.setItem(`rv_cci_${institutionCode}`, token),
+    clearCciAccessToken: (institutionCode) => localStorage.removeItem(`rv_cci_${institutionCode}`),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

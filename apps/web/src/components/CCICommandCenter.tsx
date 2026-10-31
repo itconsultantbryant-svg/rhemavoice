@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, ChartNoAxesCombined, ClipboardCheck, GraduationCap, HeartHandshake, UsersRound } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { BookOpen, ChartNoAxesCombined, ClipboardCheck, GraduationCap, HeartHandshake, LockKeyhole, UsersRound } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChayilWorkspace } from "@/components/ChayilWorkspace";
 import { useAuth } from "@/lib/auth";
@@ -27,15 +27,30 @@ const ROLE_STYLE: Record<WorkspaceRole, { label: string; description: string; ic
 export function CCICommandCenterPage({ expectedRole }: { expectedRole?: WorkspaceRole } = {}) {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
-  const { api } = useAuth();
+  const { api, setCciAccessToken } = useAuth();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [error, setError] = useState("");
+  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [signingIn, setSigningIn] = useState(false);
   const load = useCallback(async () => {
     try { setWorkspace(await api.academy.cciWorkspace(code) as unknown as Workspace); setError(""); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load the Chayil workspace."); }
+    catch { setError("CCI sign-in required. Enter the credentials issued by your CCI administrator."); }
   }, [api, code]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if (workspace && !expectedRole) router.replace(`/academy/${code}/cci/${workspace.role}`); }, [code, expectedRole, router, workspace]);
+
+  async function signIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSigningIn(true);
+    try {
+      const session = await api.academy.cciLogin(code, credentials.username, credentials.password);
+      setCciAccessToken(code, session.access);
+      setCredentials({ username: "", password: "" });
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to sign in to CCI.");
+    } finally { setSigningIn(false); }
+  }
 
   const metrics = useMemo(() => workspace ? [
     { label: "Open tasks", value: workspace.metrics.open_tasks, icon: ClipboardCheck, visible: true },
@@ -44,11 +59,30 @@ export function CCICommandCenterPage({ expectedRole }: { expectedRole?: Workspac
     { label: workspace.role === "teacher" ? "To grade" : workspace.role === "administrator" ? "Audit events" : "Courses", value: workspace.role === "teacher" ? workspace.metrics.pending_submissions : workspace.role === "administrator" ? workspace.metrics.audit_events : workspace.metrics.courses, icon: BookOpen, visible: workspace.role !== "student" },
   ].filter((item) => item.visible) : [], [workspace]);
 
+  if (!workspace && error) return <CciLogin code={code} error={error} credentials={credentials} signingIn={signingIn} onChange={setCredentials} onSubmit={signIn} />;
+
   return <ChayilWorkspace backHref="/academy">
     {!workspace && !error && <p className="py-20 text-center text-sm text-slate-500">Loading Chayil workspace…</p>}
-    {error && <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700"><p className="font-semibold">Unable to open the workspace</p><p className="mt-1">{error}</p><button className="mt-4 rounded-lg bg-red-600 px-3 py-2 font-medium text-white" onClick={() => void load()}>Try again</button></section>}
     {workspace && (expectedRole && workspace.role !== expectedRole ? <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">This dashboard is not assigned to your account.</section> : <WorkspaceView code={code} workspace={workspace} metrics={metrics} />)}
   </ChayilWorkspace>;
+}
+
+function CciLogin({ code, error, credentials, signingIn, onChange, onSubmit }: { code: string; error: string; credentials: { username: string; password: string }; signingIn: boolean; onChange: (value: { username: string; password: string }) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return <main className="mx-auto flex min-h-screen w-full max-w-lg items-center px-4 py-8 sm:px-6">
+    <section className="w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+      <div className="grid h-11 w-11 place-items-center rounded-xl bg-violet-100 text-violet-800"><LockKeyhole className="h-5 w-5" /></div>
+      <p className="mt-5 text-xs font-bold uppercase tracking-[.16em] text-violet-700">CCI restricted area</p>
+      <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">Sign in to CCI</h1>
+      <p className="mt-2 text-sm leading-6 text-slate-600">Your RhemaVoice account does not sign you into CCI. Use the CCI username and password issued by your CCI administrator.</p>
+      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+        <label className="block text-sm font-semibold text-slate-800">CCI username<input autoComplete="username" required className="rv-input mt-1.5" value={credentials.username} onChange={(event) => onChange({ ...credentials, username: event.target.value })} /></label>
+        <label className="block text-sm font-semibold text-slate-800">CCI password<input autoComplete="current-password" required type="password" className="rv-input mt-1.5" value={credentials.password} onChange={(event) => onChange({ ...credentials, password: event.target.value })} /></label>
+        <p role="alert" className="text-sm text-red-700">{error}</p>
+        <button disabled={signingIn} className="rv-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60">{signingIn ? "Signing in…" : "Enter CCI"}</button>
+      </form>
+      <a href="/academy" className="mt-5 inline-block text-sm font-medium text-violet-700 hover:text-violet-950">← Return to Rhema Academy</a>
+    </section>
+  </main>;
 }
 
 export default CCICommandCenterPage;

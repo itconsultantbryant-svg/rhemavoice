@@ -5,6 +5,7 @@ export type TokenStore = {
   getRefreshToken: () => string | null | Promise<string | null>;
   setTokens: (tokens: AuthTokens) => void | Promise<void>;
   clearTokens: () => void | Promise<void>;
+  getCciAccessToken?: (institutionCode: string) => string | null | Promise<string | null>;
 };
 
 export class ApiError extends Error {
@@ -50,6 +51,11 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
     if (auth) {
       const token = await tokenStore.getAccessToken();
       if (token) headers.set("Authorization", `Bearer ${token}`);
+      const cciMatch = /^\/academy\/institutions\/([^/]+)\/cci\//.exec(path);
+      if (cciMatch) {
+        const cciToken = await tokenStore.getCciAccessToken?.(cciMatch[1]);
+        if (cciToken) headers.set("X-CCI-Authorization", `Bearer ${cciToken}`);
+      }
     }
 
     let res = await fetch(`${url}${path}`, { ...options, headers });
@@ -168,9 +174,13 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
       get: () => request<DashboardPayload>("/dashboard/"),
     },
     academy: {
-      downloadAttachment: async (id: string, fileName = "download") => {
+      downloadAttachment: async (id: string, fileName = "download", institutionCode = "chayil") => {
         const token = await tokenStore.getAccessToken();
-        const response = await fetch(`${url}/academy/attachments/${id}/download/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const cciToken = await tokenStore.getCciAccessToken?.(institutionCode);
+        const headers: Record<string, string> = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+        if (cciToken) headers["X-CCI-Authorization"] = `Bearer ${cciToken}`;
+        const response = await fetch(`${url}/academy/attachments/${id}/download/`, { headers });
         if (!response.ok) throw new ApiError("Unable to download attachment.", response.status);
         const blob = await response.blob();
         const objectUrl = URL.createObjectURL(blob); const link = document.createElement("a");
@@ -229,6 +239,10 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/command-center/`),
       cciWorkspace: (code = "chayil") =>
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/workspace/`),
+      cciLogin: (code: string, username: string, password: string) =>
+        request<{ access: string; expires_in: number }>(`/academy/institutions/${code}/cci/login/`, {
+          method: "POST", body: JSON.stringify({ username, password }),
+        }),
       createCciTask: (code: string, payload: { title: string; description?: string; due_at?: string; assigned_to?: string }) =>
         request<Record<string, unknown>>(`/academy/institutions/${code}/cci/tasks/`, {
           method: "POST", body: JSON.stringify(payload),
@@ -242,7 +256,7 @@ export function createApiClient(baseUrl: string, tokenStore: TokenStore) {
           method: "POST", body: JSON.stringify(payload),
         }),
       cciMembers: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/members/`),
-      createCciMember: (code: string, payload: { email: string; membership_role: string; cci_role: string }) =>
+      createCciMember: (code: string, payload: { email: string; membership_role: string; cci_role: string; cci_username: string; cci_password: string }) =>
         request(`/academy/institutions/${code}/cci/members/`, { method: "POST", body: JSON.stringify(payload) }),
       cciCourses: (code: string) => request<Array<Record<string, unknown>>>(`/academy/institutions/${code}/cci/courses/`),
       createCciCourse: (code: string, payload: Record<string, unknown>) => request(`/academy/institutions/${code}/cci/courses/`, { method: "POST", body: JSON.stringify(payload) }),
